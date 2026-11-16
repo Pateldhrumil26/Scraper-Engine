@@ -1,16 +1,35 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Calendar, MapPin, Building, ExternalLink, Clock, AlertTriangle, ArrowRight } from 'lucide-react';
+import {
+  Calendar,
+  MapPin,
+  Building,
+  ExternalLink,
+  Clock,
+  AlertTriangle,
+  ArrowRight,
+  Star,
+  ShieldCheck,
+  ShieldAlert,
+  AlertCircle,
+  HelpCircle,
+} from 'lucide-react';
 import { Expo } from '../../types';
 import { getEventStatusInfo } from '../../utils/dateUtils';
+import { api } from '../../services/api';
 
 interface ExpoCardProps {
   expo: Expo;
   onSelect?: (expo: Expo) => void;
+  onExpoUpdated?: (updated: Expo) => void;
 }
 
-export const ExpoCard: React.FC<ExpoCardProps> = ({ expo, onSelect }) => {
+export const ExpoCard: React.FC<ExpoCardProps> = ({ expo, onSelect, onExpoUpdated }) => {
   const navigate = useNavigate();
+  const [isFavorite, setIsFavorite] = useState(expo.isFavorite || false);
+  const [verificationStatus, setVerificationStatus] = useState(expo.verificationStatus || 'UNVERIFIED');
+  const [isUpdatingFav, setIsUpdatingFav] = useState(false);
+
   const statusInfo = getEventStatusInfo(expo.startDate, expo.endDate);
 
   const handleClick = () => {
@@ -21,10 +40,36 @@ export const ExpoCard: React.FC<ExpoCardProps> = ({ expo, onSelect }) => {
     }
   };
 
+  const handleToggleFavorite = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setIsUpdatingFav(true);
+      const res = await api.toggleExpoFavorite(expo._id);
+      setIsFavorite(res.isFavorite);
+      if (onExpoUpdated) onExpoUpdated(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpdatingFav(false);
+    }
+  };
+
+  const handleQuickVerify = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextStatus = verificationStatus === 'VERIFIED' ? 'UNVERIFIED' : 'VERIFIED';
+    try {
+      const updated = await api.updateExpoVerification(expo._id, nextStatus);
+      setVerificationStatus(nextStatus);
+      if (onExpoUpdated) onExpoUpdated(updated);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div
       onClick={handleClick}
-      className={`bg-white rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group p-5 shadow-sm hover:shadow-md ${
+      className={`bg-white rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group p-5 shadow-sm hover:shadow-md relative ${
         statusInfo.isExpired
           ? 'border-slate-200/80 bg-slate-50/40 hover:border-slate-300'
           : statusInfo.isOngoing
@@ -33,29 +78,78 @@ export const ExpoCard: React.FC<ExpoCardProps> = ({ expo, onSelect }) => {
       }`}
     >
       <div>
-        {/* Top Status & Category Badges */}
+        {/* Top Badges & Favorite Button */}
         <div className="flex items-center justify-between gap-2 mb-3">
-          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200/60 truncate max-w-[170px]">
-            {expo.industry || 'Business Expo'}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200/60 truncate max-w-[130px]">
+              {expo.industry || 'Business Expo'}
+            </span>
 
-          {/* Proper Expiry / Upcoming / Ongoing Status Badge */}
-          {statusInfo.isExpired ? (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-              <span>EXPIRED</span>
-            </span>
-          ) : statusInfo.isOngoing ? (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300 shrink-0 shadow-sm animate-pulse">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>HAPPENING NOW</span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-              <span>UPCOMING</span>
-            </span>
-          )}
+            {/* Verification Status Pill */}
+            {verificationStatus === 'VERIFIED' ? (
+              <span
+                onClick={handleQuickVerify}
+                title="Click to toggle verification"
+                className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+              >
+                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                <span>Verified</span>
+              </span>
+            ) : verificationStatus === 'FLAGGED' ? (
+              <span
+                onClick={handleQuickVerify}
+                title="Review required - click to toggle"
+                className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
+              >
+                <ShieldAlert className="w-3 h-3 text-amber-600" />
+                <span>Review</span>
+              </span>
+            ) : (
+              <span
+                onClick={handleQuickVerify}
+                title="Unverified - click to mark verified"
+                className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+              >
+                <HelpCircle className="w-3 h-3 text-slate-400" />
+                <span>Unverified</span>
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Status Badge */}
+            {statusInfo.isExpired ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                <span>EXPIRED</span>
+              </span>
+            ) : statusInfo.isOngoing ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300 shrink-0 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>LIVE</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                <span>UPCOMING</span>
+              </span>
+            )}
+
+            {/* Favorite Star Button */}
+            <button
+              type="button"
+              onClick={handleToggleFavorite}
+              disabled={isUpdatingFav}
+              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              className={`p-1 rounded-lg transition-colors ${
+                isFavorite
+                  ? 'text-amber-500 hover:text-amber-600 bg-amber-50'
+                  : 'text-slate-300 hover:text-amber-500 hover:bg-slate-100'
+              }`}
+            >
+              <Star className={`w-4 h-4 ${isFavorite ? 'fill-amber-400' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {/* Expo Name */}
@@ -128,7 +222,7 @@ export const ExpoCard: React.FC<ExpoCardProps> = ({ expo, onSelect }) => {
         </div>
 
         {/* Location & City */}
-        <div className="flex items-center gap-1.5 text-xs text-slate-600 mb-4">
+        <div className="flex items-center gap-1.5 text-xs text-slate-600 mb-2">
           <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
           <span className="font-semibold text-slate-800">{expo.city}</span>
           {expo.country && <span>, {expo.country}</span>}
@@ -136,13 +230,26 @@ export const ExpoCard: React.FC<ExpoCardProps> = ({ expo, onSelect }) => {
             <span className="text-slate-400 text-[11px] truncate ml-1">({expo.venue})</span>
           )}
         </div>
+
+        {/* Missing Fields Warning (if any) */}
+        {expo.missingFields && expo.missingFields.length > 0 && (
+          <div className="flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50/70 px-2 py-0.5 rounded-md border border-amber-200/60 mb-3 truncate">
+            <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
+            <span>Missing: {expo.missingFields.slice(0, 3).join(', ')}</span>
+          </div>
+        )}
       </div>
 
-      {/* Footer: Dedicated Route Link + Registration Link */}
+      {/* Footer: Quality Score + Dedicated Route Link + Registration Link */}
       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-        <span className="text-[11px] text-slate-400 font-mono uppercase">
-          {expo.sourceKey}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+            {expo.dataQualityScore ?? 80}% Quality
+          </span>
+          <span className="text-[10px] text-slate-400 font-mono uppercase">
+            {expo.sourceKey}
+          </span>
+        </div>
 
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <Link

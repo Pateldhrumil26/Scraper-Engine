@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Play, Plus, FileSpreadsheet } from 'lucide-react';
+import { RefreshCw, Play, Plus, FileSpreadsheet, Database, ShieldCheck } from 'lucide-react';
 import { api } from '../services/api';
-import { DashboardStats, Expo, FetchLog } from '../types';
+import { DashboardStats, Expo } from '../types';
 import { StatsOverview } from '../modules/dashboard/StatsOverview';
 import { UpcomingExposWidget } from '../modules/dashboard/UpcomingExposWidget';
 import { RecentFetchesWidget } from '../modules/dashboard/RecentFetchesWidget';
 import { IndustryDistributionWidget } from '../modules/dashboard/IndustryDistributionWidget';
+import { VerificationQueueWidget } from '../modules/dashboard/VerificationQueueWidget';
+import { NewlyDiscoveredWidget } from '../modules/dashboard/NewlyDiscoveredWidget';
 import { ExpoDetailModal } from '../modules/expos/ExpoDetailModal';
 import { useToast } from '../context/ToastContext';
 
@@ -15,6 +17,7 @@ export const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingAll, setIsFetchingAll] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
   const [selectedExpo, setSelectedExpo] = useState<Expo | null>(null);
   const { success, error, info } = useToast();
 
@@ -48,6 +51,18 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleCreateBackup = async () => {
+    try {
+      setIsBackingUp(true);
+      const res = await api.createBackup();
+      success('Backup Created', `Saved snapshot ${res.filename} (${res.totalExpos} expos).`);
+    } catch (err: any) {
+      error('Backup Failed', err.message);
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner & Action Bar */}
@@ -59,7 +74,7 @@ export const DashboardPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={loadStats}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors"
@@ -69,8 +84,18 @@ export const DashboardPage: React.FC = () => {
           </button>
 
           <button
+            onClick={handleCreateBackup}
+            disabled={isBackingUp}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors disabled:opacity-50"
+            title="Create JSON snapshot backup of MongoDB database"
+          >
+            <Database className="w-3.5 h-3.5 text-indigo-600" />
+            <span>{isBackingUp ? 'Backing up...' : 'Backup DB'}</span>
+          </button>
+
+          <button
             onClick={() => navigate('/sources')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors"
           >
             <Plus className="w-3.5 h-3.5 text-brand-600" />
             <span>Manage Sources</span>
@@ -78,7 +103,7 @@ export const DashboardPage: React.FC = () => {
 
           <button
             onClick={() => navigate('/expos')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
             <span>Export Expos</span>
@@ -95,11 +120,23 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Metric Cards */}
-      <StatsOverview
-        stats={stats}
-        onNavigate={(tab) => navigate(`/${tab}`)}
-      />
+      {/* Metric Cards (6 KPI tiles) */}
+      <StatsOverview stats={stats} />
+
+      {/* Actionable Verification Queue & Newly Discovered Widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <VerificationQueueWidget
+          unverifiedExpos={stats?.unverifiedList || []}
+          onRefresh={loadStats}
+          onViewAll={() => navigate('/expos')}
+        />
+
+        <NewlyDiscoveredWidget
+          expos={stats?.newlyDiscoveredList || []}
+          onViewAll={() => navigate('/expos')}
+          onSelectExpo={(expo) => setSelectedExpo(expo)}
+        />
+      </div>
 
       {/* Grid: Upcoming Expos & Recent Fetches */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

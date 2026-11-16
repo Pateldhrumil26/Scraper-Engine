@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, RotateCcw, LayoutGrid, List } from 'lucide-react';
+import { Search, RotateCcw, LayoutGrid, List, Star, ShieldCheck } from 'lucide-react';
 import { ExpoFilterState } from '../../types';
 
 interface ExpoFiltersBarProps {
@@ -25,14 +25,14 @@ export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
 }) => {
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-      {/* Quick Status Tabs (All, Upcoming, Ongoing, Expired) */}
+      {/* Quick Status Tabs (All, Upcoming, Ongoing, Expired, Favorites) */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100/80 border border-slate-200/60 text-xs font-semibold">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100/80 border border-slate-200/60 text-xs font-semibold flex-wrap">
           <button
             type="button"
-            onClick={() => onChange({ status: 'ALL', page: 1 })}
+            onClick={() => onChange({ status: 'ALL', isFavorite: undefined, page: 1 })}
             className={`px-3 py-1.5 rounded-lg transition-all ${
-              filters.status === 'ALL'
+              filters.status === 'ALL' && !filters.isFavorite
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -42,7 +42,7 @@ export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
 
           <button
             type="button"
-            onClick={() => onChange({ status: 'UPCOMING', page: 1 })}
+            onClick={() => onChange({ status: 'UPCOMING', isFavorite: undefined, page: 1 })}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               filters.status === 'UPCOMING'
                 ? 'bg-white text-brand-700 shadow-sm'
@@ -55,7 +55,7 @@ export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
 
           <button
             type="button"
-            onClick={() => onChange({ status: 'ONGOING', page: 1 })}
+            onClick={() => onChange({ status: 'ONGOING', isFavorite: undefined, page: 1 })}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               filters.status === 'ONGOING'
                 ? 'bg-white text-emerald-700 shadow-sm'
@@ -68,7 +68,7 @@ export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
 
           <button
             type="button"
-            onClick={() => onChange({ status: 'EXPIRED', page: 1 })}
+            onClick={() => onChange({ status: 'EXPIRED', isFavorite: undefined, page: 1 })}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               filters.status === 'EXPIRED'
                 ? 'bg-white text-rose-700 shadow-sm'
@@ -77,6 +77,24 @@ export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
           >
             <span className="w-2 h-2 rounded-full bg-rose-500" />
             <span>Expired / Past</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                isFavorite: filters.isFavorite === 'true' ? undefined : 'true',
+                page: 1,
+              })
+            }
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+              filters.isFavorite === 'true'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'text-slate-600 hover:text-amber-700'
+            }`}
+          >
+            <Star className={`w-3 h-3 ${filters.isFavorite === 'true' ? 'fill-white' : ''}`} />
+            <span>Starred Favorites</span>
           </button>
         </div>
 
@@ -117,7 +135,7 @@ export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
       {/* Search and Filter Inputs */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-xs">
         {/* Search Input */}
-        <div className="relative md:col-span-5">
+        <div className="relative md:col-span-4">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
@@ -144,6 +162,20 @@ export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
           </select>
         </div>
 
+        {/* Verification Status Filter */}
+        <div className="md:col-span-2">
+          <select
+            value={filters.verificationStatus || 'ALL'}
+            onChange={(e) => onChange({ verificationStatus: e.target.value, page: 1 })}
+            className="w-full p-2 rounded-xl border border-slate-200 bg-white text-slate-700"
+          >
+            <option value="ALL">All Verifications</option>
+            <option value="VERIFIED">🛡️ Verified Only</option>
+            <option value="UNVERIFIED">🟡 Unverified</option>
+            <option value="FLAGGED">⚠️ Needs Review</option>
+          </select>
+        </div>
+
         {/* Country / City Filter */}
         <div className="md:col-span-2">
           <select
@@ -162,7 +194,7 @@ export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
         </div>
 
         {/* Sort By */}
-        <div className="md:col-span-3">
+        <div className="md:col-span-2">
           <select
             value={`${filters.sortBy}:${filters.sortOrder}`}
             onChange={(e) => {
@@ -174,6 +206,7 @@ export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
             <option value="startDate:asc">Date (Earliest First)</option>
             <option value="startDate:desc">Date (Latest First)</option>
             <option value="name:asc">Name (A-Z)</option>
+            <option value="dataQualityScore:desc">Highest Quality</option>
             <option value="createdAt:desc">Recently Added</option>
           </select>
         </div>

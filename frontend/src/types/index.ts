@@ -22,13 +22,25 @@ export interface WebsiteSource {
   active: boolean;
   scheduleCron: string;
   lastFetchedAt: string | null;
+  lastSuccessfulFetchAt?: string | null;
   lastStatus: 'IDLE' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PARTIAL';
+  healthStatus?: 'HEALTHY' | 'DEGRADED' | 'FAILING' | 'UNTESTED';
+  consecutiveFailures?: number;
   lastError: string | null;
   totalFetchedCount: number;
   selectorConfig?: SelectorConfig;
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface IChangeHistoryItem {
+  field: string;
+  oldValue: string;
+  newValue: string;
+  changedAt: string;
+  changedBy?: string;
+  reason?: string;
 }
 
 export interface Expo {
@@ -49,6 +61,15 @@ export interface Expo {
   sourceWebsiteId?: WebsiteSource | string;
   sourceKey: string;
   status: 'UPCOMING' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
+  verificationStatus?: 'UNVERIFIED' | 'VERIFIED' | 'FLAGGED' | 'REJECTED';
+  dataQualityScore?: number;
+  missingFields?: string[];
+  validationErrors?: string[];
+  isFavorite?: boolean;
+  changeHistory?: IChangeHistoryItem[];
+  duplicateReviewStatus?: 'NONE' | 'NEEDS_REVIEW' | 'CONFIRMED_DUPLICATE' | 'CONFIRMED_UNIQUE';
+  potentialDuplicateOf?: string;
+  duplicateConfidence?: 'HIGH' | 'MEDIUM' | 'LOW';
   duplicateHash: string;
   rawData?: Record<string, any>;
   createdAt: string;
@@ -66,6 +87,12 @@ export interface FetchLog {
   startTime: string;
   endTime: string;
   durationMs: number;
+  pagesVisited?: number;
+  recordsDiscovered?: number;
+  recordsInserted?: number;
+  recordsUpdated?: number;
+  recordsSkipped?: number;
+  recordsFailed?: number;
   totalFound: number;
   newInserted: number;
   duplicatesSkipped: number;
@@ -80,12 +107,23 @@ export interface DashboardStats {
   upcomingExpos: number;
   ongoingExpos?: number;
   expiredExpos?: number;
+  unverifiedCount?: number;
+  favoritesCount?: number;
+  newlyDiscoveredCount?: number;
   totalSources: number;
   activeSources: number;
+  sourceHealth?: {
+    healthy: number;
+    degraded: number;
+    failing: number;
+    total: number;
+  };
   recentFetches: FetchLog[];
   industryStats: { label: string; count: number }[];
   countryStats: { label: string; count: number }[];
   upcomingList: Expo[];
+  unverifiedList?: Expo[];
+  newlyDiscoveredList?: Expo[];
 }
 
 export interface PaginationMeta {
@@ -104,10 +142,21 @@ export interface ExpoFilterState {
   city: string;
   sourceId: string;
   status: string;
+  verificationStatus?: string;
+  isFavorite?: boolean | string;
   dateFrom: string;
   dateTo: string;
   sortBy: string;
   sortOrder: 'asc' | 'desc';
   page: number;
   limit: number;
+}
+
+export interface BackupMetadata {
+  filename: string;
+  createdAt: string;
+  sizeBytes: number;
+  totalExpos: number;
+  totalSources: number;
+  totalLogs: number;
 }

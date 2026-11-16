@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, History, CheckCircle2, AlertCircle, Clock, X } from 'lucide-react';
+import { RefreshCw, History, CheckCircle2, AlertCircle, Clock, X, FileText } from 'lucide-react';
 import { api } from '../services/api';
 import { FetchLog, PaginationMeta } from '../types';
 import { Spinner } from '../components/common/Spinner';
@@ -33,7 +33,7 @@ export const HistoryPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Fetch Execution History</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Audit trail tracking successful and failed fetching operations with execution metrics
+            Audit trail tracking records discovered, inserted, updated, skipped and execution duration
           </p>
         </div>
 
@@ -63,8 +63,10 @@ export const HistoryPage: React.FC = () => {
                 <th className="py-3 px-4">Trigger</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Duration</th>
-                <th className="py-3 px-4">New Inserted</th>
-                <th className="py-3 px-4">Duplicates Skipped</th>
+                <th className="py-3 px-3">Discovered</th>
+                <th className="py-3 px-3">Inserted</th>
+                <th className="py-3 px-3">Updated</th>
+                <th className="py-3 px-3">Skipped</th>
                 <th className="py-3 px-4">Timestamp</th>
               </tr>
             </thead>
@@ -91,9 +93,16 @@ export const HistoryPage: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-3.5 px-4 text-slate-600 font-mono">{log.durationMs}ms</td>
-                  <td className="py-3.5 px-4 text-emerald-600 font-semibold">+{log.newInserted}</td>
-                  <td className="py-3.5 px-4 text-slate-500">{log.duplicatesSkipped}</td>
-                  <td className="py-3.5 px-4 text-slate-500">{new Date(log.startTime).toLocaleString()}</td>
+                  <td className="py-3.5 px-3 text-slate-700 font-bold">{log.recordsDiscovered ?? log.totalFound}</td>
+                  <td className="py-3.5 px-3 text-emerald-600 font-bold">+{log.recordsInserted ?? log.newInserted}</td>
+                  <td className="py-3.5 px-3 text-indigo-600 font-bold">
+                    {(log.recordsUpdated ?? 0) > 0 ? `+${log.recordsUpdated}` : '0'}
+                  </td>
+                  <td className="py-3.5 px-3 text-slate-400">{log.recordsSkipped ?? log.duplicatesSkipped}</td>
+                  <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
+                    {new Date(log.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })},{' '}
+                    {new Date(log.startTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -101,7 +110,7 @@ export const HistoryPage: React.FC = () => {
         </div>
       )}
 
-      {/* Log Modal */}
+      {/* Log Modal with 5 Metrics */}
       {selectedLog && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
@@ -118,18 +127,30 @@ export const HistoryPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 text-center text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="text-slate-400 block text-[10px]">Total Found</span>
-                <span className="font-bold text-base text-slate-800">{selectedLog.totalFound}</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Discovered</span>
+                <span className="font-bold text-base text-slate-800">
+                  {selectedLog.recordsDiscovered ?? selectedLog.totalFound}
+                </span>
               </div>
-              <div className="p-3 bg-emerald-50 rounded-xl">
-                <span className="text-emerald-600 block text-[10px]">New Inserted</span>
-                <span className="font-bold text-base text-emerald-700">+{selectedLog.newInserted}</span>
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                <span className="text-emerald-600 block text-[10px] uppercase font-bold">Inserted</span>
+                <span className="font-bold text-base text-emerald-700">
+                  +{selectedLog.recordsInserted ?? selectedLog.newInserted}
+                </span>
               </div>
-              <div className="p-3 bg-amber-50 rounded-xl">
-                <span className="text-amber-600 block text-[10px]">Duplicates Skipped</span>
-                <span className="font-bold text-base text-amber-700">{selectedLog.duplicatesSkipped}</span>
+              <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                <span className="text-indigo-600 block text-[10px] uppercase font-bold">Updated</span>
+                <span className="font-bold text-base text-indigo-700">
+                  +{selectedLog.recordsUpdated ?? 0}
+                </span>
+              </div>
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
+                <span className="text-amber-600 block text-[10px] uppercase font-bold">Skipped</span>
+                <span className="font-bold text-base text-amber-700">
+                  {selectedLog.recordsSkipped ?? selectedLog.duplicatesSkipped}
+                </span>
               </div>
             </div>
 

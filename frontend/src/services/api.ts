@@ -96,6 +96,51 @@ export const api = {
     await apiClient.delete(`/expos/${id}`);
   },
 
+  createExpo: async (data: Partial<Expo>): Promise<Expo> => {
+    const res = await apiClient.post<{ success: boolean; data: Expo }>('/expos', data);
+    return res.data.data;
+  },
+
+  updateExpo: async (id: string, data: Partial<Expo>): Promise<Expo> => {
+    const res = await apiClient.put<{ success: boolean; data: Expo }>(`/expos/${id}`, data);
+    return res.data.data;
+  },
+
+  toggleExpoFavorite: async (id: string): Promise<{ isFavorite: boolean; data: Expo }> => {
+    const res = await apiClient.patch<{ success: boolean; isFavorite: boolean; data: Expo }>(`/expos/${id}/favorite`);
+    return res.data;
+  },
+
+  updateExpoVerification: async (id: string, status: string): Promise<Expo> => {
+    const res = await apiClient.patch<{ success: boolean; data: Expo }>(`/expos/${id}/verify`, { status });
+    return res.data.data;
+  },
+
+  bulkDeleteExpos: async (ids: string[]): Promise<void> => {
+    await apiClient.post('/expos/bulk-delete', { ids });
+  },
+
+  bulkVerifyExpos: async (ids: string[], status: string): Promise<void> => {
+    await apiClient.post('/expos/bulk-verify', { ids, status });
+  },
+
+  testSourceConnection: async (payload: { id?: string; url?: string }): Promise<any> => {
+    const endpoint = payload.id ? `/sources/${payload.id}/test-connection` : '/sources/test-connection';
+    const res = await apiClient.post(endpoint, payload);
+    return res.data;
+  },
+
+  // Backups
+  createBackup: async (): Promise<any> => {
+    const res = await apiClient.post('/backup/create');
+    return res.data.data;
+  },
+
+  listBackups: async (): Promise<any[]> => {
+    const res = await apiClient.get('/backup');
+    return res.data.data;
+  },
+
   getExpoFilters: async (): Promise<{ industries: string[]; countries: string[]; cities: string[] }> => {
     const res = await apiClient.get<{ success: boolean; data: any }>('/expos/filters');
     return res.data.data;

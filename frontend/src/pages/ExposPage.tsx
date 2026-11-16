@@ -1,12 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Download, FileSpreadsheet, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  RefreshCw,
+  Download,
+  FileSpreadsheet,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Trash2,
+  ShieldCheck,
+  ShieldAlert,
+  X,
+} from 'lucide-react';
 import { api } from '../services/api';
 import { Expo, PaginationMeta, ExpoFilterState } from '../types';
 import { ExpoFiltersBar } from '../modules/expos/ExpoFiltersBar';
 import { ExpoCard } from '../modules/expos/ExpoCard';
 import { ExpoTable } from '../modules/expos/ExpoTable';
 import { ExpoDetailModal } from '../modules/expos/ExpoDetailModal';
+import { ExpoModal } from '../modules/expos/ExpoModal';
 import { Spinner } from '../components/common/Spinner';
 import { useToast } from '../context/ToastContext';
 
@@ -19,6 +32,14 @@ export const ExposPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedExpo, setSelectedExpo] = useState<Expo | null>(null);
 
+  // Manual Creation / Edit Modal
+  const [isExpoModalOpen, setIsExpoModalOpen] = useState(false);
+  const [editingExpo, setEditingExpo] = useState<Expo | null>(null);
+
+  // Bulk Selection
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+
   // Filter options
   const [availableIndustries, setAvailableIndustries] = useState<string[]>([]);
   const [availableCountries, setAvailableCountries] = useState<string[]>([]);
@@ -30,6 +51,8 @@ export const ExposPage: React.FC = () => {
     city: 'ALL',
     sourceId: 'ALL',
     status: 'ALL',
+    verificationStatus: 'ALL',
+    isFavorite: undefined,
     dateFrom: '',
     dateTo: '',
     sortBy: 'startDate',
@@ -38,7 +61,7 @@ export const ExposPage: React.FC = () => {
     limit: 12,
   });
 
-  const { success, error } = useToast();
+  const { success, error, info } = useToast();
 
   const loadExpos = useCallback(async () => {
     try {
@@ -79,6 +102,8 @@ export const ExposPage: React.FC = () => {
       city: 'ALL',
       sourceId: 'ALL',
       status: 'ALL',
+      verificationStatus: 'ALL',
+      isFavorite: undefined,
       dateFrom: '',
       dateTo: '',
       sortBy: 'startDate',
@@ -86,6 +111,7 @@ export const ExposPage: React.FC = () => {
       page: 1,
       limit: 12,
     });
+    setSelectedIds([]);
   };
 
   const handleExportExcel = async () => {
@@ -112,6 +138,92 @@ export const ExposPage: React.FC = () => {
     }
   };
 
+  // Bulk Selection Handlers
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = (selectAll: boolean) => {
+    if (selectAll) {
+      setSelectedIds(expos.map((e) => e._id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleBulkVerify = async (status: 'VERIFIED' | 'FLAGGED' | 'REJECTED') => {
+    if (selectedIds.length === 0) return;
+    try {
+      setIsBulkLoading(true);
+      await api.bulkVerifyExpos(selectedIds, status);
+      success('Bulk Updated', `Marked ${selectedIds.length} expos as ${status}.`);
+      setSelectedIds([]);
+      loadExpos();
+    } catch (err: any) {
+      error('Bulk Verify Failed', err.message);
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected expos?`)) {
+      return;
+    }
+    try {
+      setIsBulkLoading(true);
+      await api.bulkDeleteExpos(selectedIds);
+      success('Bulk Deleted', `Deleted ${selectedIds.length} expos.`);
+      setSelectedIds([]);
+      loadExpos();
+    } catch (err: any) {
+      error('Bulk Delete Failed', err.message);
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
+  // Single Expo Updates
+  const handleToggleFavorite = async (id: string) => {
+    try {
+      const res = await api.toggleExpoFavorite(id);
+      setExpos((prev) =>
+        prev.map((e) => (e._id === id ? { ...e, isFavorite: res.isFavorite } : e))
+      );
+    } catch (err: any) {
+      error('Failed to toggle favorite', err.message);
+    }
+  };
+
+  const handleUpdateVerification = async (id: string, newStatus: string) => {
+    try {
+      const updated = await api.updateExpoVerification(id, newStatus);
+      setExpos((prev) => (prev.map((e) => (e._id === id ? updated : e))));
+      success('Status Updated', `Expo verification changed to ${newStatus}.`);
+    } catch (err: any) {
+      error('Failed to update status', err.message);
+    }
+  };
+
+  const handleSaveExpo = async (formData: Partial<Expo>) => {
+    try {
+      if (editingExpo) {
+        await api.updateExpo(editingExpo._id, formData);
+        success('Expo Updated', `Saved changes to "${formData.name}".`);
+      } else {
+        await api.createExpo(formData);
+        success('Expo Created', `Manually registered "${formData.name}".`);
+      }
+      loadExpos();
+    } catch (err: any) {
+      error('Save Failed', err.response?.data?.message || err.message);
+      throw err;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -119,11 +231,22 @@ export const ExposPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Business Expo Listings</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Search, multi-filter by upcoming/expired status, location, and dates with instant Excel & CSV export
+            Search, multi-filter by verification, location, dates with instant Excel & CSV export
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={() => {
+              setEditingExpo(null);
+              setIsExpoModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition-all"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Expo Manually</span>
+          </button>
+
           <button
             onClick={loadExpos}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors"
@@ -151,6 +274,53 @@ export const ExposPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Bulk Selection Floating Action Toolbar */}
+      {selectedIds.length > 0 && (
+        <div className="bg-brand-900 text-white p-3 rounded-2xl shadow-lg flex items-center justify-between flex-wrap gap-3 animate-fade-in">
+          <div className="flex items-center gap-2 text-xs font-semibold px-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>{selectedIds.length} expos selected</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleBulkVerify('VERIFIED')}
+              disabled={isBulkLoading}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Bulk Verify</span>
+            </button>
+
+            <button
+              onClick={() => handleBulkVerify('FLAGGED')}
+              disabled={isBulkLoading}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Flag Review</span>
+            </button>
+
+            <button
+              onClick={handleBulkDelete}
+              disabled={isBulkLoading}
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Bulk Delete</span>
+            </button>
+
+            <button
+              onClick={() => setSelectedIds([])}
+              className="p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+              title="Clear Selection"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filter Bar with Status Tabs & Expiry Filters */}
       <ExpoFiltersBar
@@ -190,6 +360,9 @@ export const ExposPage: React.FC = () => {
               key={expo._id}
               expo={expo}
               onSelect={(e: Expo) => setSelectedExpo(e)}
+              onExpoUpdated={(updated) => {
+                setExpos((prev) => prev.map((item) => (item._id === updated._id ? updated : item)));
+              }}
             />
           ))}
         </div>
@@ -197,6 +370,11 @@ export const ExposPage: React.FC = () => {
         <ExpoTable
           expos={expos}
           onSelect={(e: Expo) => setSelectedExpo(e)}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+          onSelectAll={handleSelectAll}
+          onToggleFavorite={handleToggleFavorite}
+          onUpdateVerification={handleUpdateVerification}
         />
       )}
 
@@ -231,6 +409,17 @@ export const ExposPage: React.FC = () => {
         isOpen={!!selectedExpo}
         expo={selectedExpo}
         onClose={() => setSelectedExpo(null)}
+      />
+
+      {/* Manual Add / Edit Expo Modal */}
+      <ExpoModal
+        isOpen={isExpoModalOpen}
+        expo={editingExpo}
+        onClose={() => {
+          setIsExpoModalOpen(false);
+          setEditingExpo(null);
+        }}
+        onSave={handleSaveExpo}
       />
     </div>
   );
