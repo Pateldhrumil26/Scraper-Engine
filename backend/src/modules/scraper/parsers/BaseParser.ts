@@ -95,40 +95,23 @@ export abstract class BaseParser implements IExpoParser {
     const parts = cleaned.split(' - ').map((s) => s.trim());
 
     if (parts.length >= 2) {
-      const part1 = parts[0];
-      const part2 = parts[1];
+      let part1 = parts[0];
+      let part2 = parts[1];
 
-      // Format: "15 - 18 Oct 2026"
-      // part1 = "15", part2 = "18 Oct 2026"
-      const dayOnlyRegex = /^\d{1,2}$/;
-      if (dayOnlyRegex.test(part1)) {
-        const monthYearMatch = part2.match(/([a-zA-Z]+|\d{1,2})[\s,]+(\d{4})/);
-        if (monthYearMatch) {
-          const startAttempt = new Date(`${part1} ${part2.substring(part2.indexOf(' '))}`);
-          const endAttempt = new Date(part2);
-          if (!isNaN(startAttempt.getTime()) && !isNaN(endAttempt.getTime())) {
-            return { startDate: startAttempt, endDate: endAttempt };
-          }
-        }
-      }
+      // Extract year from part2 if part1 lacks a year (e.g. "15 Nov" & "18 Nov 2026" or "15" & "18 Nov 2026")
+      const yearMatchPart2 = part2.match(/\b(\d{4})\b/);
+      const yearPart2 = yearMatchPart2 ? yearMatchPart2[1] : null;
 
-      // Format: "Oct 15 - 18, 2026"
-      // part1 = "Oct 15", part2 = "18, 2026"
-      const monthPrefixMatch = part1.match(/^([a-zA-Z]+)\s+(\d{1,2})$/i);
-      if (monthPrefixMatch) {
-        const month = monthPrefixMatch[1];
-        const day1 = monthPrefixMatch[2];
-        const yearMatch = part2.match(/(\d{4})/);
-        const day2Match = part2.match(/^(\d{1,2})/);
-        if (yearMatch && day2Match) {
-          const year = yearMatch[1];
-          const day2 = day2Match[1];
-          const s = new Date(`${month} ${day1}, ${year}`);
-          const e = new Date(`${month} ${day2}, ${year}`);
-          if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
-            return { startDate: s, endDate: e };
-          }
-        }
+      // Extract month from part2 if part1 lacks a month (e.g. "15" & "18 Nov 2026")
+      const monthMatchPart2 = part2.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/i);
+      const monthPart2 = monthMatchPart2 ? monthMatchPart2[1] : null;
+
+      // Format: "15 - 18 Oct 2026" -> part1 = "15 Oct 2026"
+      if (/^\d{1,2}$/.test(part1) && monthPart2 && yearPart2) {
+        part1 = `${part1} ${monthPart2} ${yearPart2}`;
+      } else if (!/\b\d{4}\b/.test(part1) && yearPart2) {
+        // Format: "15 Nov - 18 Nov 2026" or "Nov 15 - Nov 18, 2026"
+        part1 = `${part1} ${yearPart2}`;
       }
 
       const s = new Date(part1);

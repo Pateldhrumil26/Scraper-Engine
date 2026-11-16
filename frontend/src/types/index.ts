@@ -78,6 +78,8 @@ export interface FetchLog {
 export interface DashboardStats {
   totalExpos: number;
   upcomingExpos: number;
+  ongoingExpos?: number;
+  expiredExpos?: number;
   totalSources: number;
   activeSources: number;
   recentFetches: FetchLog[];

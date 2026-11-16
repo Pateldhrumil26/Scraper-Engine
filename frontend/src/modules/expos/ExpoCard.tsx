@@ -1,25 +1,35 @@
 import React from 'react';
-import { Calendar, MapPin, Building, ExternalLink, Clock, AlertTriangle } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Calendar, MapPin, Building, ExternalLink, Clock, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Expo } from '../../types';
 import { getEventStatusInfo } from '../../utils/dateUtils';
 
 interface ExpoCardProps {
   expo: Expo;
-  onSelect: (expo: Expo) => void;
+  onSelect?: (expo: Expo) => void;
 }
 
 export const ExpoCard: React.FC<ExpoCardProps> = ({ expo, onSelect }) => {
+  const navigate = useNavigate();
   const statusInfo = getEventStatusInfo(expo.startDate, expo.endDate);
+
+  const handleClick = () => {
+    if (onSelect) {
+      onSelect(expo);
+    } else {
+      navigate(`/expos/${expo._id}`);
+    }
+  };
 
   return (
     <div
-      onClick={() => onSelect(expo)}
+      onClick={handleClick}
       className={`bg-white rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group p-5 shadow-sm hover:shadow-md ${
         statusInfo.isExpired
-          ? 'border-slate-200/80 bg-slate-50/30 opacity-90 hover:border-slate-300'
+          ? 'border-slate-200/80 bg-slate-50/40 hover:border-slate-300'
           : statusInfo.isOngoing
-          ? 'border-emerald-200 hover:border-emerald-400 ring-1 ring-emerald-100'
-          : 'border-slate-200 hover:border-brand-300'
+          ? 'border-emerald-300 hover:border-emerald-500 ring-1 ring-emerald-200 bg-emerald-50/10'
+          : 'border-slate-200 hover:border-brand-400'
       }`}
     >
       <div>
@@ -31,19 +41,19 @@ export const ExpoCard: React.FC<ExpoCardProps> = ({ expo, onSelect }) => {
 
           {/* Proper Expiry / Upcoming / Ongoing Status Badge */}
           {statusInfo.isExpired ? (
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-              <span>Expired</span>
+              <span>EXPIRED</span>
             </span>
           ) : statusInfo.isOngoing ? (
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0 animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Happening Now</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300 shrink-0 shadow-sm animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>HAPPENING NOW</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
-              <span>Upcoming</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+              <span>UPCOMING</span>
             </span>
           )}
         </div>
@@ -60,17 +70,17 @@ export const ExpoCard: React.FC<ExpoCardProps> = ({ expo, onSelect }) => {
         {/* Organizer */}
         <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
           <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          <span className="truncate">{expo.organizer || 'Organized by Event Management'}</span>
+          <span className="truncate">{expo.organizer || 'Trade Network Organizer'}</span>
         </div>
 
         {/* Event Dates & Expiry/Countdown Box */}
         <div
-          className={`p-3 rounded-xl border mb-3 text-xs space-y-1 ${
+          className={`p-3 rounded-xl border mb-3 text-xs space-y-1.5 ${
             statusInfo.isExpired
-              ? 'bg-rose-50/50 border-rose-100 text-slate-700'
+              ? 'bg-rose-50/60 border-rose-200 text-rose-950'
               : statusInfo.isOngoing
-              ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
-              : 'bg-brand-50/40 border-brand-100 text-slate-800'
+              ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+              : 'bg-blue-50/50 border-blue-100 text-slate-800'
           }`}
         >
           <div className="flex items-center justify-between">
@@ -92,24 +102,26 @@ export const ExpoCard: React.FC<ExpoCardProps> = ({ expo, onSelect }) => {
               </span>
             </div>
 
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/80 border border-slate-200/40 text-slate-600 font-semibold">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/90 border border-slate-200/60 text-slate-600 font-semibold shadow-xs">
               {statusInfo.durationDays} {statusInfo.durationDays === 1 ? 'Day' : 'Days'}
             </span>
           </div>
 
           <div
-            className={`flex items-center gap-1 text-[11px] font-medium ${
+            className={`flex items-center gap-1.5 text-[11px] font-semibold ${
               statusInfo.isExpired
-                ? 'text-rose-600'
+                ? 'text-rose-700'
                 : statusInfo.isOngoing
                 ? 'text-emerald-700 font-bold'
-                : 'text-brand-700'
+                : 'text-blue-700'
             }`}
           >
             {statusInfo.isExpired ? (
-              <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+            ) : statusInfo.isOngoing ? (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
             ) : (
-              <Clock className="w-3 h-3 text-brand-500 shrink-0" />
+              <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
             )}
             <span>{statusInfo.timeDescription}</span>
           </div>
@@ -126,26 +138,33 @@ export const ExpoCard: React.FC<ExpoCardProps> = ({ expo, onSelect }) => {
         </div>
       </div>
 
-      {/* Footer / Registration Link */}
+      {/* Footer: Dedicated Route Link + Registration Link */}
       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
         <span className="text-[11px] text-slate-400 font-mono uppercase">
           {expo.sourceKey}
         </span>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Link
+            to={`/expos/${expo._id}`}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-brand-600 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <span>Details</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+
           {expo.registrationUrl && (
             <a
               href={expo.registrationUrl}
               target="_blank"
               rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className={`inline-flex items-center gap-1 font-semibold text-xs px-2.5 py-1 rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-1 font-semibold text-[11px] px-2.5 py-1 rounded-lg transition-colors ${
                 statusInfo.isExpired
                   ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                   : 'text-brand-600 hover:text-brand-800 hover:bg-brand-50'
               }`}
             >
-              <span>{statusInfo.isExpired ? 'View Archive' : 'Register'}</span>
+              <span>{statusInfo.isExpired ? 'Archive' : 'Register'}</span>
               <ExternalLink className="w-3 h-3" />
             </a>
           )}

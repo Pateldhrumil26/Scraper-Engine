@@ -204,6 +204,8 @@ export class ExposController {
       const [
         totalExpos,
         upcomingExpos,
+        ongoingExpos,
+        expiredExpos,
         totalSources,
         activeSources,
         recentFetches,
@@ -212,7 +214,9 @@ export class ExposController {
         upcomingList,
       ] = await Promise.all([
         Expo.countDocuments(),
-        Expo.countDocuments({ startDate: { $gte: now } }),
+        Expo.countDocuments({ startDate: { $gt: now } }),
+        Expo.countDocuments({ startDate: { $lte: now }, endDate: { $gte: now } }),
+        Expo.countDocuments({ endDate: { $lt: now } }),
         WebsiteSource.countDocuments(),
         WebsiteSource.countDocuments({ active: true }),
         FetchLog.find().sort({ createdAt: -1 }).limit(5).lean(),
@@ -237,6 +241,8 @@ export class ExposController {
         data: {
           totalExpos,
           upcomingExpos,
+          ongoingExpos,
+          expiredExpos,
           totalSources,
           activeSources,
           recentFetches,
