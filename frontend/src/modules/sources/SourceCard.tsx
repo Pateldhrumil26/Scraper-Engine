@@ -12,6 +12,17 @@ interface SourceCardProps {
   onFetchNow: (sourceId: string) => Promise<void>;
 }
 
+function formatCronSchedule(cron?: string): string {
+  if (!cron) return 'Manual';
+  const trimmed = cron.trim();
+  if (trimmed === '0 */6 * * *') return 'Every 6 Hours';
+  if (trimmed === '0 0 * * *') return 'Daily Midnight';
+  if (trimmed === '0 */12 * * *') return 'Every 12 Hours';
+  if (trimmed === '0 */3 * * *') return 'Every 3 Hours';
+  if (trimmed === '0 0 * * 0') return 'Weekly';
+  return trimmed;
+}
+
 export const SourceCard: React.FC<SourceCardProps> = ({
   source,
   onEdit,
@@ -88,10 +99,10 @@ export const SourceCard: React.FC<SourceCardProps> = ({
         {/* Schedule & Stats info */}
         <div className="grid grid-cols-2 gap-2 text-xs py-2 border-t border-b border-slate-100 mb-4">
           <div>
-            <span className="text-slate-400 block mb-0.5">Schedule (Cron)</span>
-            <div className="flex items-center gap-1 font-mono text-slate-700">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              <span>{source.scheduleCron || 'Manual'}</span>
+            <span className="text-slate-400 block mb-0.5">Auto-Schedule</span>
+            <div className="flex items-center gap-1 font-semibold text-slate-700">
+              <Calendar className="w-3.5 h-3.5 text-brand-500" />
+              <span>{formatCronSchedule(source.scheduleCron)}</span>
             </div>
           </div>
           <div>

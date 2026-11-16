@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Code, Globe, HelpCircle } from 'lucide-react';
+import { Globe, Clock, Check, Sparkles, Sliders } from 'lucide-react';
 import { WebsiteSource } from '../../types';
 import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
@@ -12,6 +12,45 @@ interface SourceModalProps {
   parsers: { key: string; name: string; description: string }[];
 }
 
+interface SchedulePreset {
+  id: string;
+  cron: string;
+  title: string;
+  subtitle: string;
+  description: string;
+}
+
+const SCHEDULE_PRESETS: SchedulePreset[] = [
+  {
+    id: 'every_6h',
+    cron: '0 */6 * * *',
+    title: 'Every 6 Hours',
+    subtitle: 'Recommended',
+    description: 'Runs 4 times a day (00:00, 06:00, 12:00, 18:00)',
+  },
+  {
+    id: 'daily',
+    cron: '0 0 * * *',
+    title: 'Daily Midnight',
+    subtitle: 'Once a day',
+    description: 'Runs once daily at 12:00 AM (00:00)',
+  },
+  {
+    id: 'every_12h',
+    cron: '0 */12 * * *',
+    title: 'Every 12 Hours',
+    subtitle: 'Twice daily',
+    description: 'Runs twice a day at 12:00 AM and 12:00 PM',
+  },
+  {
+    id: 'weekly',
+    cron: '0 0 * * 0',
+    title: 'Weekly',
+    subtitle: 'Every Sunday',
+    description: 'Runs once a week on Sunday at midnight',
+  },
+];
+
 export const SourceModal: React.FC<SourceModalProps> = ({
   isOpen,
   onClose,
@@ -23,20 +62,9 @@ export const SourceModal: React.FC<SourceModalProps> = ({
   const [url, setUrl] = useState('');
   const [parserKey, setParserKey] = useState('auto');
   const [category, setCategory] = useState('General Business');
-  const [scheduleCron, setScheduleCron] = useState('0 0 * * *');
-  const [notes, setNotes] = useState('');
-  const [showSelectors, setShowSelectors] = useState(false);
+  const [scheduleCron, setScheduleCron] = useState('0 */6 * * *');
+  const [isCustomCron, setIsCustomCron] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Custom Selectors
-  const [itemSelector, setItemSelector] = useState('');
-  const [nameSelector, setNameSelector] = useState('');
-  const [startDateSelector, setStartDateSelector] = useState('');
-  const [venueSelector, setVenueSelector] = useState('');
-  const [citySelector, setCitySelector] = useState('');
-  const [countrySelector, setCountrySelector] = useState('');
-  const [organizerSelector, setOrganizerSelector] = useState('');
-  const [descriptionSelector, setDescriptionSelector] = useState('');
 
   useEffect(() => {
     if (source) {
@@ -44,35 +72,19 @@ export const SourceModal: React.FC<SourceModalProps> = ({
       setUrl(source.url);
       setParserKey(source.parserKey);
       setCategory(source.category || 'General Business');
-      setScheduleCron(source.scheduleCron || '0 0 * * *');
-      setNotes(source.notes || '');
+      const cron = source.scheduleCron || '0 */6 * * *';
+      setScheduleCron(cron);
 
-      const sel = source.selectorConfig || {};
-      setItemSelector(sel.itemSelector || '');
-      setNameSelector(sel.nameSelector || '');
-      setStartDateSelector(sel.startDateSelector || '');
-      setVenueSelector(sel.venueSelector || '');
-      setCitySelector(sel.citySelector || '');
-      setCountrySelector(sel.countrySelector || '');
-      setOrganizerSelector(sel.organizerSelector || '');
-      setDescriptionSelector(sel.descriptionSelector || '');
-      if (sel.itemSelector) setShowSelectors(true);
+      // Check if it matches any standard preset
+      const isPreset = SCHEDULE_PRESETS.some((p) => p.cron === cron);
+      setIsCustomCron(!isPreset);
     } else {
       setName('');
       setUrl('');
       setParserKey('auto');
       setCategory('General Business');
-      setScheduleCron('0 0 * * *');
-      setNotes('');
-      setItemSelector('');
-      setNameSelector('');
-      setStartDateSelector('');
-      setVenueSelector('');
-      setCitySelector('');
-      setCountrySelector('');
-      setOrganizerSelector('');
-      setDescriptionSelector('');
-      setShowSelectors(false);
+      setScheduleCron('0 */6 * * *');
+      setIsCustomCron(false);
     }
   }, [source, isOpen]);
 
@@ -81,15 +93,26 @@ export const SourceModal: React.FC<SourceModalProps> = ({
     setUrl(newUrl);
     if (!source && parserKey === 'auto') {
       const lower = newUrl.toLowerCase();
-      if (lower.includes('eventseye.com')) {
-        setParserKey('eventseye');
+      if (lower.includes('allevents.in')) {
+        setParserKey('allevents');
+      } else if (lower.includes('expostandzone.com')) {
+        setParserKey('expostandzone');
       } else if (lower.includes('tradefairdates.com')) {
         setParserKey('tradefairdates');
+      } else if (lower.includes('eventseye.com')) {
+        setParserKey('eventseye');
       } else if (lower.includes('biztradeshows.com')) {
         setParserKey('biztradeshows');
       }
     }
   };
+
+  const handleSelectPreset = (preset: SchedulePreset) => {
+    setScheduleCron(preset.cron);
+    setIsCustomCron(false);
+  };
+
+  const currentPreset = SCHEDULE_PRESETS.find((p) => p.cron === scheduleCron);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,17 +126,6 @@ export const SourceModal: React.FC<SourceModalProps> = ({
         parserKey: parserKey === 'auto' ? 'generic' : parserKey,
         category: category.trim(),
         scheduleCron: scheduleCron.trim(),
-        notes: notes.trim(),
-        selectorConfig: {
-          itemSelector: itemSelector.trim(),
-          nameSelector: nameSelector.trim(),
-          startDateSelector: startDateSelector.trim(),
-          venueSelector: venueSelector.trim(),
-          citySelector: citySelector.trim(),
-          countrySelector: countrySelector.trim(),
-          organizerSelector: organizerSelector.trim(),
-          descriptionSelector: descriptionSelector.trim(),
-        },
       });
       onClose();
     } finally {
@@ -126,13 +138,13 @@ export const SourceModal: React.FC<SourceModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={source ? 'Edit Website Source' : 'Add New Website Source'}
-      subtitle="Configure target trade show directory and scraping parser"
+      subtitle="Configure target trade show directory and automated scraping schedule"
       maxWidth="2xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {/* Source Name */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
             Source Name *
           </label>
           <input
@@ -141,24 +153,24 @@ export const SourceModal: React.FC<SourceModalProps> = ({
             placeholder="e.g. EventsEye Global Directory"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-xs"
           />
         </div>
 
         {/* Target URL */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
             Website Target URL *
           </label>
           <div className="relative">
-            <Globe className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+            <Globe className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
             <input
               type="url"
               required
               placeholder="https://www.example.com/expos-list"
               value={url}
               onChange={(e) => handleUrlChange(e.target.value)}
-              className="w-full text-sm pl-10 pr-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full text-sm pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-xs"
             />
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
@@ -169,13 +181,13 @@ export const SourceModal: React.FC<SourceModalProps> = ({
         {/* Parser Selection & Category */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
               Parser Type
             </label>
             <select
               value={parserKey}
               onChange={(e) => setParserKey(e.target.value)}
-              className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+              className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white shadow-xs"
             >
               <option value="auto">Auto-Detect from Domain</option>
               {parsers.map((p) => (
@@ -187,7 +199,7 @@ export const SourceModal: React.FC<SourceModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
               Industry Category
             </label>
             <input
@@ -195,141 +207,100 @@ export const SourceModal: React.FC<SourceModalProps> = ({
               placeholder="e.g. Technology, Medical, Trade"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full text-sm px-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-xs"
             />
           </div>
         </div>
 
-        {/* Scheduled Cron */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-              Automatic Fetch Schedule (Cron)
-            </label>
-            <span className="text-[11px] text-slate-400 font-mono">0 0 * * * = Daily midnight</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <input
-              type="text"
-              value={scheduleCron}
-              onChange={(e) => setScheduleCron(e.target.value)}
-              placeholder="0 0 * * *"
-              className="text-sm px-3.5 py-2 font-mono rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
+        {/* Automatic Fetch Schedule (Cron) - Modern & Clean UI */}
+        <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/90 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-brand-600" />
+              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Automatic Fetch Schedule
+              </label>
+            </div>
             <button
               type="button"
-              onClick={() => setScheduleCron('0 */6 * * *')}
-              className="text-xs px-2 py-1 border border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-700 transition-colors"
+              onClick={() => setIsCustomCron(!isCustomCron)}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-800 transition-colors"
             >
-              Every 6 Hours
-            </button>
-            <button
-              type="button"
-              onClick={() => setScheduleCron('0 0 * * *')}
-              className="text-xs px-2 py-1 border border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-lg text-slate-700 transition-colors"
-            >
-              Daily Midnight
+              <Sliders className="w-3 h-3" />
+              <span>{isCustomCron ? 'Switch to Presets' : 'Custom Cron'}</span>
             </button>
           </div>
-        </div>
 
-        {/* Custom CSS Selectors Accordion */}
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowSelectors(!showSelectors)}
-            className="w-full px-4 py-2.5 bg-slate-50 flex items-center justify-between text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Code className="w-3.5 h-3.5 text-brand-600" />
-              Custom CSS Selectors Override (Optional for Generic Sites)
-            </span>
-            {showSelectors ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-
-          {showSelectors && (
-            <div className="p-4 bg-white space-y-3 border-t border-slate-200 text-xs">
-              <p className="text-slate-500 mb-2">
-                Specify CSS selectors to extract custom HTML layouts. Leave blank to rely on heuristic parser.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-600 mb-0.5">Item Row/Card Selector</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. .expo-card, tr.event-row"
-                    value={itemSelector}
-                    onChange={(e) => setItemSelector(e.target.value)}
-                    className="w-full text-xs font-mono p-2 border border-slate-200 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 mb-0.5">Title / Name Selector</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. h3.title, a.expo-name"
-                    value={nameSelector}
-                    onChange={(e) => setNameSelector(e.target.value)}
-                    className="w-full text-xs font-mono p-2 border border-slate-200 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 mb-0.5">Date Selector</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. .date, time.event-date"
-                    value={startDateSelector}
-                    onChange={(e) => setStartDateSelector(e.target.value)}
-                    className="w-full text-xs font-mono p-2 border border-slate-200 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 mb-0.5">Venue Selector</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. .venue, span.location"
-                    value={venueSelector}
-                    onChange={(e) => setVenueSelector(e.target.value)}
-                    className="w-full text-xs font-mono p-2 border border-slate-200 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 mb-0.5">City Selector</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. .city"
-                    value={citySelector}
-                    onChange={(e) => setCitySelector(e.target.value)}
-                    className="w-full text-xs font-mono p-2 border border-slate-200 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 mb-0.5">Organizer Selector</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. .organizer-name"
-                    value={organizerSelector}
-                    onChange={(e) => setOrganizerSelector(e.target.value)}
-                    className="w-full text-xs font-mono p-2 border border-slate-200 rounded-lg"
-                  />
-                </div>
+          {/* Schedule Presets Grid */}
+          {!isCustomCron ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {SCHEDULE_PRESETS.map((preset) => {
+                const isSelected = scheduleCron === preset.cron;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(preset)}
+                    className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
+                      isSelected
+                        ? 'border-brand-500 bg-white ring-2 ring-brand-100 shadow-sm'
+                        : 'border-slate-200 bg-white/70 hover:bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span
+                          className={`text-xs font-bold ${
+                            isSelected ? 'text-brand-700' : 'text-slate-800'
+                          }`}
+                        >
+                          {preset.title}
+                        </span>
+                        {isSelected && (
+                          <span className="w-4 h-4 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0">
+                            <Check className="w-2.5 h-2.5" />
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-medium block">
+                        {preset.subtitle}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            /* Custom Cron Expression Input */
+            <div className="space-y-2 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+              <label className="block text-[11px] font-semibold text-slate-600">
+                Custom 5-Part Cron Expression
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  required
+                  value={scheduleCron}
+                  onChange={(e) => setScheduleCron(e.target.value)}
+                  placeholder="0 */6 * * *"
+                  className="flex-1 text-sm font-mono px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <span className="text-xs font-mono text-slate-400 bg-slate-50 px-2.5 py-2 rounded-lg border border-slate-200 shrink-0">
+                  minute hour day month weekday
+                </span>
               </div>
             </div>
           )}
-        </div>
 
-        {/* Notes */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-            Notes / Remarks
-          </label>
-          <textarea
-            rows={2}
-            placeholder="Additional information or scraping remarks..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="w-full text-sm p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
+          {/* Active Schedule Human-Readable Description */}
+          <div className="flex items-center gap-2 text-xs bg-white py-2 px-3 rounded-xl border border-slate-200/70 text-slate-600">
+            <Sparkles className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+            <span className="font-medium text-slate-700">
+              {currentPreset
+                ? currentPreset.description
+                : `Custom schedule: "${scheduleCron}"`}
+            </span>
+          </div>
         </div>
 
         {/* Buttons */}
