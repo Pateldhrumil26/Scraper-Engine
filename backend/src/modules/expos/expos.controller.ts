@@ -68,9 +68,19 @@ export class ExposController {
         query.sourceKey = sourceKey;
       }
 
-      // Filter by Status
+      // Filter by Status (Dynamic Date-Based Status Support)
+      const now = new Date();
       if (status && typeof status === 'string' && status !== 'ALL') {
-        query.status = status;
+        if (status === 'UPCOMING') {
+          query.startDate = { $gt: now };
+        } else if (status === 'ONGOING') {
+          query.startDate = { $lte: now };
+          query.endDate = { $gte: now };
+        } else if (status === 'EXPIRED' || status === 'COMPLETED') {
+          query.endDate = { $lt: now };
+        } else {
+          query.status = status;
+        }
       }
 
       // Date Range Filter
