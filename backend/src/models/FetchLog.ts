@@ -6,10 +6,16 @@ export interface IFetchLog extends Document {
   sourceUrl: string;
   parserKey: string;
   triggeredBy: 'MANUAL' | 'SCHEDULED';
-  status: 'SUCCESS' | 'FAILED' | 'PARTIAL';
+  status: 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'NO_DATA' | 'PARSE_FAILED';
   startTime: Date;
   endTime: Date;
   durationMs: number;
+  pagesVisited: number;
+  recordsDiscovered: number;
+  recordsInserted: number;
+  recordsUpdated: number;
+  recordsSkipped: number;
+  recordsFailed: number;
   totalFound: number;
   newInserted: number;
   duplicatesSkipped: number;
@@ -28,13 +34,19 @@ const FetchLogSchema = new Schema<IFetchLog>(
     triggeredBy: { type: String, enum: ['MANUAL', 'SCHEDULED'], default: 'MANUAL' },
     status: {
       type: String,
-      enum: ['SUCCESS', 'FAILED', 'PARTIAL'],
+      enum: ['SUCCESS', 'FAILED', 'PARTIAL', 'NO_DATA', 'PARSE_FAILED'],
       required: true,
       index: true,
     },
     startTime: { type: Date, required: true },
     endTime: { type: Date, required: true },
     durationMs: { type: Number, required: true },
+    pagesVisited: { type: Number, default: 1 },
+    recordsDiscovered: { type: Number, default: 0 },
+    recordsInserted: { type: Number, default: 0 },
+    recordsUpdated: { type: Number, default: 0 },
+    recordsSkipped: { type: Number, default: 0 },
+    recordsFailed: { type: Number, default: 0 },
     totalFound: { type: Number, default: 0 },
     newInserted: { type: Number, default: 0 },
     duplicatesSkipped: { type: Number, default: 0 },

@@ -23,7 +23,10 @@ export interface IWebsiteSource extends Document {
   active: boolean;
   scheduleCron: string;
   lastFetchedAt?: Date | null;
-  lastStatus?: 'IDLE' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PARTIAL';
+  lastSuccessfulFetchAt?: Date | null;
+  lastStatus?: 'IDLE' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'NO_DATA' | 'PARSE_FAILED';
+  healthStatus: 'HEALTHY' | 'DEGRADED' | 'FAILING' | 'UNTESTED';
+  consecutiveFailures: number;
   lastError?: string | null;
   totalFetchedCount: number;
   selectorConfig?: ISelectorConfig;
@@ -56,11 +59,19 @@ const WebsiteSourceSchema = new Schema<IWebsiteSource>(
     active: { type: Boolean, default: true, index: true },
     scheduleCron: { type: String, default: '0 0 * * *' },
     lastFetchedAt: { type: Date, default: null },
+    lastSuccessfulFetchAt: { type: Date, default: null },
     lastStatus: {
       type: String,
       enum: ['IDLE', 'RUNNING', 'SUCCESS', 'FAILED', 'PARTIAL'],
       default: 'IDLE',
     },
+    healthStatus: {
+      type: String,
+      enum: ['HEALTHY', 'DEGRADED', 'FAILING', 'UNTESTED'],
+      default: 'UNTESTED',
+      index: true,
+    },
+    consecutiveFailures: { type: Number, default: 0 },
     lastError: { type: String, default: null },
     totalFetchedCount: { type: Number, default: 0 },
     selectorConfig: { type: SelectorConfigSchema, default: () => ({}) },

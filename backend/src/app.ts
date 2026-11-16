@@ -1,5 +1,6 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import backupRoutes from './modules/backup/backup.routes';
 import sourcesRoutes from './modules/sources/sources.routes';
 import exposRoutes from './modules/expos/expos.routes';
 import historyRoutes from './modules/history/history.routes';
@@ -32,6 +33,7 @@ export const createApp = (): Application => {
   app.use('/api/sources', sourcesRoutes);
   app.use('/api/expos', exposRoutes);
   app.use('/api/history', historyRoutes);
+  app.use('/api/backup', backupRoutes);
   app.use('/api/export', exportRoutes);
 
   // 404 handler

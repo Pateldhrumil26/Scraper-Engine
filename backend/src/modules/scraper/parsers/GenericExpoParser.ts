@@ -6,7 +6,7 @@ import { ISelectorConfig } from '../../../models/WebsiteSource';
 export class GenericExpoParser extends BaseParser {
   readonly key = 'generic';
   readonly name = 'Configurable & Heuristic Generic Parser';
-  readonly description = 'Universal adaptive parser supporting JSON-LD Schema, custom CSS selectors, and automated heuristic DOM extraction';
+  readonly description = 'Universal adaptive parser supporting JSON-LD Schema, custom CSS selectors, Next.js SSR streams, and automated heuristic DOM extraction';
 
   canHandle(_url: string): boolean {
     return true; // Fallback handler for any URL
@@ -105,8 +105,7 @@ export class GenericExpoParser extends BaseParser {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // STRATEGY 2: Universal Schema.org JSON-LD Event Detection
-    // Modern expo websites often embed structured Schema.org events
+    // STRATEGY 2: Universal Schema.org JSON-LD Event & ItemList Detection
     // ─────────────────────────────────────────────────────────────
     $('script[type="application/ld+json"]').each((_, scriptEl) => {
       try {
@@ -119,7 +118,13 @@ export class GenericExpoParser extends BaseParser {
           if (Array.isArray(obj)) {
             obj.forEach(extractEvents);
           } else if (typeof obj === 'object') {
-            if (obj['@type'] === 'Event' || obj['@type'] === 'BusinessEvent' || obj['@type'] === 'ExhibitionEvent' || obj.startDate) {
+            if (
+              obj['@type'] === 'Event' ||
+              obj['@type'] === 'BusinessEvent' ||
+              obj['@type'] === 'ExhibitionEvent' ||
+              obj.startDate ||
+              (obj['@type'] === 'ListItem' && obj.name && (obj.url || typeof obj.name === 'string'))
+            ) {
               candidateEvents.push(obj);
             }
             if (obj.itemListElement && Array.isArray(obj.itemListElement)) {
@@ -134,7 +139,7 @@ export class GenericExpoParser extends BaseParser {
           if (!name || name.length < 3 || seenNames.has(name.toLowerCase())) continue;
           seenNames.add(name.toLowerCase());
 
-          const startDate = ev.startDate ? new Date(ev.startDate) : new Date();
+          const startDate = ev.startDate ? new Date(ev.startDate) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
           let endDate = ev.endDate ? new Date(ev.endDate) : new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
           if (endDate.getTime() < startDate.getTime()) {
             endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000);
@@ -159,14 +164,14 @@ export class GenericExpoParser extends BaseParser {
             }
           }
 
-          const organizer = this.cleanText(ev.organizer?.name) || 'Trade Expo Network';
-          const description = this.cleanText(ev.description) || `${name} trade expo.`;
-          const sourceUrl = ev.url ? this.resolveUrl(ev.url, baseUrl) : baseUrl;
+          const organizer = this.cleanText(ev.organizer?.name) || 'Event Host';
+          const description = this.cleanText(ev.description) || `${name} business event in ${city}.`;
+          const detailUrl = ev.url ? this.resolveUrl(ev.url, baseUrl) : baseUrl;
 
           results.push({
             name,
             organizer,
-            industry: 'Business Expo & Trade Show',
+            industry: 'Business Expo',
             startDate,
             endDate,
             venue,
@@ -174,87 +179,152 @@ export class GenericExpoParser extends BaseParser {
             state,
             country,
             description,
-            registrationUrl: sourceUrl,
-            sourceUrl,
+            registrationUrl: detailUrl,
+            sourceUrl: detailUrl,
             rawData: {
-              extractedVia: 'json-ld',
+              extractedVia: 'schema.org-jsonld',
+              schemaType: ev['@type'],
             },
           });
         }
       } catch {
-        // Continue to next script
+        // Ignore invalid JSON-LD blocks
       }
     });
 
     if (results.length > 0) return results;
 
     // ─────────────────────────────────────────────────────────────
-    // STRATEGY 3: Heading & Card Anchor Heuristic
-    // Finds headings inside cards/containers with date and link
+    // STRATEGY 2.5: Next.js App Router SSR Hydration Stream Check
     // ─────────────────────────────────────────────────────────────
-    $('h2, h3, h4').each((_, hTag) => {
-      const $h = $(hTag);
-      const title = this.cleanText($h.text());
+    $('script').each((_, el) => {
+      const content = $(el).html() || '';
+      if (!content.includes('initialItems')) return;
 
-      // Filter out non-event headings (short or generic terms)
+      const chunks: string[] = [];
+      const selfObj = {
+        __next_f: {
+          push: (arr: any[]) => {
+            if (arr && arr[1] && typeof arr[1] === 'string') chunks.push(arr[1]);
+          },
+        },
+      };
+
+      try {
+        const fn = new Function('self', content);
+        fn(selfObj);
+
+        for (const chunk of chunks) {
+          if (!chunk.includes('initialItems')) continue;
+          const match = chunk.match(/"initialItems":(\[.*?\])(?:,"|\})/);
+          if (match) {
+            const rawList = JSON.parse(match[1]);
+            for (const raw of rawList) {
+              const name = this.cleanText(raw.name);
+              if (!name || seenNames.has(name.toLowerCase())) continue;
+              seenNames.add(name.toLowerCase());
+
+              let startDate = new Date();
+              let endDate = new Date();
+              if (raw.time) {
+                const parts = raw.time.split('-');
+                if (parts.length === 2) {
+                  const sStr = parts[0].replace(/\./g, '-');
+                  startDate = new Date(sStr);
+                  const year = sStr.split('-')[0];
+                  const eStr = `${year}-${parts[1].replace(/\./g, '-')}`;
+                  endDate = new Date(eStr);
+                }
+              }
+
+              const detailUrl = raw.publicId
+                ? this.resolveUrl(`/en/detail/${raw.publicId}`, baseUrl)
+                : baseUrl;
+
+              results.push({
+                name,
+                organizer: raw.organizerRoleText || 'Directory Organizer',
+                industry: raw.category || 'Business Exhibition',
+                startDate,
+                endDate,
+                venue: raw.venueName || `${raw.city || 'Convention'} Center`,
+                city: raw.city || 'Global',
+                state: '',
+                country: raw.country || 'International',
+                description: `${name} - Exhibition in ${raw.city || ''}, ${raw.country || ''}.`,
+                registrationUrl: detailUrl,
+                sourceUrl: detailUrl,
+                rawData: {
+                  extractedVia: 'nextjs-ssr-initialItems',
+                  raw,
+                },
+              });
+            }
+          }
+        }
+      } catch {
+        // Continue to other strategies
+      }
+    });
+
+    if (results.length > 0) return results;
+
+    // ─────────────────────────────────────────────────────────────
+    // STRATEGY 3: Heuristic DOM Extraction (Headings + Date Detection)
+    // ─────────────────────────────────────────────────────────────
+    $('h1, h2, h3, h4').each((_, heading) => {
+      const $h = $(heading);
+      const name = this.cleanText($h.text());
+
       if (
-        !title ||
-        title.length < 4 ||
-        title.length > 150 ||
-        seenNames.has(title.toLowerCase()) ||
-        /^(contact|about|privacy|terms|menu|navigation|features|categories|sponsors|upcoming|recent|login|signup|home|subscribe|faqs?|300\+|12\.7m)$/i.test(title)
+        !name ||
+        name.length < 3 ||
+        name.length > 150 ||
+        /^(search|filter|menu|category|categories|about|contact|subscribe|featured|upcoming|all rights|popular)/i.test(name) ||
+        seenNames.has(name.toLowerCase())
       ) {
         return;
       }
 
-      // Find surrounding card container (walk up to 4 levels)
-      const $card = $h.closest('div.card, div[class*="card"], div.rounded, div.shadow, div.flex, article, li, tr');
-      if ($card.length === 0) return;
+      const $container = $h.closest('div, article, section, li').filter((_, el) => {
+        const text = $(el).text();
+        return text.length > name.length && text.length < 1500;
+      });
 
-      const cardText = this.cleanText($card.text());
+      if ($container.length === 0) return;
 
-      // Look for a date pattern inside the card text
-      const dateMatch = cardText.match(/\b(?:\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(?:[-–to]+\s*\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*)?,?\s+\d{4}|\d{1,2}[./-]\d{1,2}[./-]\d{4}|\d{4}-\d{2}-\d{2})\b/i);
+      const containerText = $container.text();
+      const dateMatch = containerText.match(
+        /\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:\s*[-–]\s*\d{1,2})?,?\s+\d{4}\b/i
+      ) || containerText.match(/\b\d{1,2}[./-]\d{1,2}[./-]\d{4}\b/);
 
-      // If card has a date OR a detail link with "fair", "expo", "show", "event"
-      const linkEl = $card.find('a[href]').first();
-      const href = linkEl.attr('href') || $h.find('a').attr('href') || '';
+      if (!dateMatch) return;
 
-      if (dateMatch || (href && /(?:expo|fair|show|event|tradeshow)/i.test(href))) {
-        seenNames.add(title.toLowerCase());
-        const sourceUrl = this.resolveUrl(href, baseUrl);
+      seenNames.add(name.toLowerCase());
+      const { startDate, endDate } = this.parseDateRange(dateMatch[0]);
 
-        const dateRaw = dateMatch ? dateMatch[0] : '';
-        const { startDate, endDate } = this.parseDateRange(dateRaw);
+      const linkEl = $container.find('a[href]').first();
+      const relHref = linkEl.attr('href') || $h.find('a').attr('href') || '';
+      const sourceUrl = this.resolveUrl(relHref, baseUrl);
 
-        // Location clue extraction
-        let city = 'Global';
-        let country = 'International';
-        const locMatch = cardText.match(/\b([A-Z][a-zA-Z\s]{2,20}),\s*([A-Z][a-zA-Z\s]{2,20})\b/);
-        if (locMatch) {
-          city = locMatch[1].trim();
-          country = locMatch[2].trim();
-        }
-
-        results.push({
-          name: title,
-          organizer: 'Trade Show Network',
-          industry: 'Business Expo',
-          startDate,
-          endDate,
-          venue: `${city} Exhibition Center`,
-          city,
-          state: '',
-          country,
-          description: this.cleanText($card.find('p').first().text()) || `${title} trade expo in ${city}.`,
-          registrationUrl: sourceUrl,
-          sourceUrl,
-          rawData: {
-            extractedVia: 'heading-card-heuristic',
-            dateRaw,
-          },
-        });
-      }
+      results.push({
+        name,
+        organizer: 'Trade Show Network',
+        industry: 'Business Expo',
+        startDate,
+        endDate,
+        venue: 'Exhibition Hall',
+        city: 'Global',
+        state: '',
+        country: 'International',
+        description: this.cleanText($container.find('p').first().text()) || `${name} - Business event`,
+        registrationUrl: sourceUrl,
+        sourceUrl,
+        rawData: {
+          extractedVia: 'heading-heuristic',
+          dateRaw: dateMatch[0],
+        },
+      });
     });
 
     return results;

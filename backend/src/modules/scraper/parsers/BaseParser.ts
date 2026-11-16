@@ -12,9 +12,10 @@ export abstract class BaseParser implements IExpoParser {
   abstract parse(html: string, baseUrl: string, customConfig?: ISelectorConfig): Promise<RawExpoData[]>;
 
   /**
-   * Safe HTTP GET with proper headers and timeout
+   * Safe HTTP GET with proper headers, timeout, and exponential backoff retry loop
    */
-  async fetchHtml(url: string, extraHeaders?: Record<string, string>): Promise<string> {
+  async fetchHtml(url: string, extraHeaders?: Record<string, string>, maxRetries = 3): Promise<string> {
+    const timeoutMs = config.requestTimeoutMs || 15000;
     const requestConfig: AxiosRequestConfig = {
       headers: {
         'User-Agent': config.defaultUserAgent,
@@ -24,14 +25,38 @@ export abstract class BaseParser implements IExpoParser {
         'Pragma': 'no-cache',
         ...extraHeaders,
       },
-      timeout: config.requestTimeoutMs,
+      timeout: timeoutMs,
       maxRedirects: 5,
       responseType: 'text',
       validateStatus: (status) => status >= 200 && status < 400,
     };
 
-    const response = await axios.get(url, requestConfig);
-    return response.data;
+    let attempt = 0;
+    let lastError: any = null;
+
+    while (attempt < maxRetries) {
+      attempt++;
+      try {
+        const response = await axios.get(url, requestConfig);
+        return response.data;
+      } catch (err: any) {
+        lastError = err;
+        const status = err.response?.status;
+
+        // Do not retry on permanent client errors (403 WAF, 404, 401)
+        if (status === 403 || status === 404 || status === 401) {
+          throw err;
+        }
+
+        if (attempt < maxRetries) {
+          const delayMs = Math.min(6000, 1000 * Math.pow(2, attempt - 1));
+          console.warn(`[BaseParser] Fetch attempt ${attempt} failed for ${url} (${err.message}). Retrying in ${delayMs}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+
+    throw lastError || new Error(`Failed to fetch ${url} after ${maxRetries} attempts`);
   }
 
   /**
@@ -80,7 +105,7 @@ export abstract class BaseParser implements IExpoParser {
       return { startDate: fallbackStart, endDate: fallbackEnd };
     }
 
-    const cleaned = this.cleanText(dateStr).replace(/\s*[-–—/to]+\s*/i, ' - ');
+    const cleaned = this.cleanText(dateStr).replace(/\s*(?:[-–—]+|\bto\b)\s*/gi, ' - ');
 
     // Try standard Date parsing directly if single date
     if (!cleaned.includes(' - ')) {

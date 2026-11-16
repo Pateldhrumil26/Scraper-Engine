@@ -5,6 +5,8 @@ const router = Router();
 
 router.get('/parsers', SourcesController.getParsers);
 router.post('/test-preview', SourcesController.testUrlPreview);
+router.post('/test-connection', SourcesController.testConnection);
+router.post('/:id/test-connection', SourcesController.testConnection);
 router.post('/fetch-all', SourcesController.triggerFetchAll);
 
 router.get('/', SourcesController.getAll);

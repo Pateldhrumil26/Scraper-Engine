@@ -27,31 +27,37 @@ export class ScraperEngineService {
       lastError: null,
     });
 
-    let totalFound = 0;
-    let newInserted = 0;
-    let duplicatesSkipped = 0;
+    let pagesVisited = 1;
+    let recordsDiscovered = 0;
+    let recordsInserted = 0;
+    let recordsUpdated = 0;
+    let recordsSkipped = 0;
+    let recordsFailed = 0;
     let validatedItems: ValidatedExpoData[] = [];
-    let fetchStatus: 'SUCCESS' | 'FAILED' | 'PARTIAL' = 'SUCCESS';
+    let fetchStatus: 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'NO_DATA' | 'PARSE_FAILED' = 'SUCCESS';
 
     try {
       // 1. Resolve parser
       const parser = parserRegistry.resolveForUrl(source.url, source.parserKey);
       logs.push(`Resolved parser: ${parser.name} [${parser.key}]`);
 
-      // 2. Fetch HTML content
+      // 2. Fetch HTML content with execution timeout guard (45 seconds)
       logs.push(`Fetching HTML from: ${source.url}`);
       let html = '';
       try {
-        if ('fetchHtml' in parser && typeof (parser as any).fetchHtml === 'function') {
-          html = await (parser as any).fetchHtml(source.url);
-        } else {
-          const defaultParser = parserRegistry.get('generic');
-          html = await (defaultParser as any).fetchHtml(source.url);
-        }
+        const fetchPromise = 'fetchHtml' in parser && typeof (parser as any).fetchHtml === 'function'
+          ? (parser as any).fetchHtml(source.url)
+          : (parserRegistry.get('generic') as any).fetchHtml(source.url);
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Scraper request timed out after 45 seconds')), 45000)
+        );
+
+        html = await Promise.race([fetchPromise, timeoutPromise]);
         logs.push(`Fetched ${html.length} bytes of HTML`);
       } catch (fetchErr: any) {
         if (fetchErr.response?.status === 403) {
-          throw new Error(`HTTP 403 Forbidden: ${new URL(source.url).hostname} is protected by Cloudflare bot protection/anti-bot challenge. Automated scraping access is blocked by the website.`);
+          throw new Error(`HTTP 403 Forbidden: ${new URL(source.url).hostname} blocks automated scrapers with Cloudflare Turnstile / anti-bot challenge.`);
         }
         throw new Error(`Failed to fetch HTML: ${fetchErr.message}`);
       }
@@ -59,52 +65,71 @@ export class ScraperEngineService {
       // 3. Website-Specific Parsing
       logs.push(`Parsing HTML with ${parser.name}...`);
       const rawItems = await parser.parse(html, source.url, source.selectorConfig);
-      totalFound = rawItems.length;
-      logs.push(`Parser extracted ${totalFound} raw items`);
+      recordsDiscovered = rawItems.length;
+      logs.push(`Parser extracted ${recordsDiscovered} raw items`);
 
-      if (totalFound === 0) {
-        logs.push(`Warning: No expo items found with current parser configuration`);
-        fetchStatus = 'PARTIAL';
-      }
+      if (recordsDiscovered === 0) {
+        logs.push(`Warning: No expo items found on webpage with current parser configuration. Status: NO_DATA`);
+        fetchStatus = 'NO_DATA';
+      } else {
+        // 4. Data Validation, Missing-Field Detection & Quality Scoring
+        logs.push(`Running Data Validation on ${recordsDiscovered} items...`);
+        for (const raw of rawItems) {
+          const valRes = ExpoValidator.validate(raw, parser.key);
+          if (valRes.valid && valRes.data) {
+            validatedItems.push(valRes.data);
+          } else {
+            recordsFailed++;
+            errors.push(`Validation failed for item: ${valRes.error}`);
+          }
+        }
+        logs.push(`Data Validation finished: ${validatedItems.length} valid, ${recordsFailed} invalid`);
 
-      // 4. Data Validation
-      logs.push(`Running Data Validation on ${totalFound} items...`);
-      let validCount = 0;
-      let invalidCount = 0;
-
-      for (const raw of rawItems) {
-        const valRes = ExpoValidator.validate(raw, parser.key);
-        if (valRes.valid && valRes.data) {
-          validCount++;
-          validatedItems.push(valRes.data);
+        if (validatedItems.length === 0) {
+          logs.push(`All ${recordsDiscovered} discovered items failed data validation. Status: PARSE_FAILED`);
+          fetchStatus = 'PARSE_FAILED';
         } else {
-          invalidCount++;
-          errors.push(`Validation failed for item: ${valRes.error}`);
+          // 5. Duplicate Check & Update Detection
+          logs.push(`Running Duplicate Detection & Field Diffing against MongoDB...`);
+          const { newItems, updatedItems, duplicateItems } = await DuplicateDetector.checkDuplicates(validatedItems);
+          recordsSkipped = duplicateItems.length;
+
+          // 6. Execute Updates on Modified Existing Expos
+          if (updatedItems.length > 0) {
+            logs.push(`Found ${updatedItems.length} existing expos with updated dates/venues/details. Applying updates...`);
+            for (const action of updatedItems) {
+              await Expo.findByIdAndUpdate(action.existingId, {
+                $set: action.updatedFields,
+                $push: { changeHistory: { $each: action.changes } },
+              });
+              recordsUpdated++;
+              const summary = action.changes.map((c) => `${c.field} (${c.oldValue} -> ${c.newValue})`).join('; ');
+              logs.push(`[Update] "${action.name}": ${summary}`);
+            }
+            logs.push(`Applied changes to ${recordsUpdated} existing expo records`);
+          }
+
+          // 7. Store New Unique Expos in MongoDB
+          if (newItems.length > 0) {
+            const docsToInsert = newItems.map((item) => ({
+              ...item,
+              sourceWebsiteId: source._id,
+            }));
+
+            const inserted = await Expo.insertMany(docsToInsert, { ordered: false });
+            recordsInserted = inserted.length;
+            logs.push(`Successfully saved ${recordsInserted} new unique expo records in MongoDB`);
+          } else {
+            logs.push(`No new records to insert (${recordsSkipped} unchanged duplicates skipped)`);
+          }
+
+          if (errors.length > 0 && recordsInserted === 0 && recordsUpdated === 0) {
+            fetchStatus = 'PARTIAL';
+          } else {
+            fetchStatus = 'SUCCESS';
+          }
         }
       }
-      logs.push(`Data Validation finished: ${validCount} valid, ${invalidCount} invalid`);
-
-      // 5. Duplicate Check
-      logs.push(`Running Duplicate Detection against MongoDB...`);
-      const { newItems, duplicateItems } = await DuplicateDetector.checkDuplicates(validatedItems);
-      duplicatesSkipped = duplicateItems.length;
-      logs.push(`Duplicate Check completed: ${newItems.length} new unique expos, ${duplicatesSkipped} duplicates skipped`);
-
-      // 6. Store in MongoDB
-      if (newItems.length > 0) {
-        const docsToInsert = newItems.map((item) => ({
-          ...item,
-          sourceWebsiteId: source._id,
-        }));
-
-        const inserted = await Expo.insertMany(docsToInsert, { ordered: false });
-        newInserted = inserted.length;
-        logs.push(`Successfully saved ${newInserted} new expo records in MongoDB`);
-      } else {
-        logs.push(`No new records to insert (all items already present in database)`);
-      }
-
-      fetchStatus = errors.length > 0 && newInserted === 0 && totalFound > 0 ? 'PARTIAL' : 'SUCCESS';
     } catch (err: any) {
       fetchStatus = 'FAILED';
       const msg = err.message || 'Unknown fetching error';
@@ -116,15 +141,33 @@ export class ScraperEngineService {
     const durationMs = endTime.getTime() - startTime.getTime();
     logs.push(`Fetch completed in ${durationMs}ms with status: ${fetchStatus}`);
 
-    // Update WebsiteSource document
+    // Compute Source Health Status
+    let healthStatus: 'HEALTHY' | 'DEGRADED' | 'FAILING' = 'HEALTHY';
+    let consecutiveFailures = source.consecutiveFailures || 0;
+
+    if (fetchStatus === 'SUCCESS') {
+      healthStatus = 'HEALTHY';
+      consecutiveFailures = 0;
+    } else if (fetchStatus === 'NO_DATA' || fetchStatus === 'PARTIAL' || fetchStatus === 'PARSE_FAILED') {
+      healthStatus = 'DEGRADED';
+      consecutiveFailures = 0;
+    } else {
+      consecutiveFailures += 1;
+      healthStatus = consecutiveFailures >= 2 ? 'FAILING' : 'DEGRADED';
+    }
+
+    // Update WebsiteSource document (Preserve existing records & only update lastSuccessfulFetchAt on SUCCESS)
     await WebsiteSource.findByIdAndUpdate(source._id, {
       lastFetchedAt: endTime,
+      lastSuccessfulFetchAt: fetchStatus === 'SUCCESS' ? endTime : source.lastSuccessfulFetchAt,
       lastStatus: fetchStatus,
-      lastError: errors.length > 0 ? errors[0] : null,
-      $inc: { totalFetchedCount: newInserted },
+      healthStatus,
+      consecutiveFailures,
+      lastError: errors.length > 0 ? errors[0] : (fetchStatus === 'NO_DATA' ? 'No expo items discovered on webpage' : null),
+      $inc: { totalFetchedCount: recordsInserted },
     });
 
-    // Create FetchLog record
+    // Create Rich FetchLog record
     const fetchLog = new FetchLog({
       sourceId: source._id,
       sourceName: source.name,
@@ -135,9 +178,15 @@ export class ScraperEngineService {
       startTime,
       endTime,
       durationMs,
-      totalFound,
-      newInserted,
-      duplicatesSkipped,
+      pagesVisited,
+      recordsDiscovered,
+      recordsInserted,
+      recordsUpdated,
+      recordsSkipped,
+      recordsFailed,
+      totalFound: recordsDiscovered,
+      newInserted: recordsInserted,
+      duplicatesSkipped: recordsSkipped,
       errorMessages: errors,
       logMessages: logs,
     });
@@ -153,9 +202,15 @@ export class ScraperEngineService {
       startTime,
       endTime,
       durationMs,
-      totalFound,
-      newInserted,
-      duplicatesSkipped,
+      pagesVisited,
+      recordsDiscovered,
+      recordsInserted,
+      recordsUpdated,
+      recordsSkipped,
+      recordsFailed,
+      totalFound: recordsDiscovered,
+      newInserted: recordsInserted,
+      duplicatesSkipped: recordsSkipped,
       errors,
       logs,
       items: validatedItems,
@@ -163,7 +218,7 @@ export class ScraperEngineService {
   }
 
   /**
-   * Fetches all active sources in sequence with polite delay between sources
+   * Fetches all active sources with concurrency limit and polite interval
    */
   static async fetchAllActiveSources(triggeredBy: 'MANUAL' | 'SCHEDULED' = 'MANUAL'): Promise<FetchResult[]> {
     const activeSources = await WebsiteSource.find({ active: true });
@@ -176,8 +231,8 @@ export class ScraperEngineService {
       } catch (err: any) {
         console.error(`Error fetching source ${source.name}:`, err);
       }
-      // Rate limit delay between sources
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Polite rate limit delay between sources
+      await new Promise((resolve) => setTimeout(resolve, 2500));
     }
 
     return results;

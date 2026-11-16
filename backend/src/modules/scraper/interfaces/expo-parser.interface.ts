@@ -33,6 +33,13 @@ export interface ValidatedExpoData {
   sourceKey: string;
   duplicateHash: string;
   status: 'UPCOMING' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
+  verificationStatus?: 'UNVERIFIED' | 'VERIFIED' | 'FLAGGED' | 'REJECTED';
+  dataQualityScore?: number;
+  missingFields?: string[];
+  validationErrors?: string[];
+  duplicateReviewStatus?: 'NONE' | 'NEEDS_REVIEW' | 'CONFIRMED_DUPLICATE' | 'CONFIRMED_UNIQUE';
+  potentialDuplicateOf?: string;
+  duplicateConfidence?: 'HIGH' | 'MEDIUM' | 'LOW';
   rawData?: Record<string, any>;
 }
 
@@ -49,10 +56,16 @@ export interface FetchResult {
   sourceName: string;
   sourceUrl: string;
   parserKey: string;
-  status: 'SUCCESS' | 'FAILED' | 'PARTIAL';
+  status: 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'NO_DATA' | 'PARSE_FAILED';
   startTime: Date;
   endTime: Date;
   durationMs: number;
+  pagesVisited: number;
+  recordsDiscovered: number;
+  recordsInserted: number;
+  recordsUpdated: number;
+  recordsSkipped: number;
+  recordsFailed: number;
   totalFound: number;
   newInserted: number;
   duplicatesSkipped: number;

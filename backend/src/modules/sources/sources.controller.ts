@@ -3,6 +3,7 @@ import { WebsiteSource } from '../../models/WebsiteSource';
 import { parserRegistry } from '../scraper/parser-registry';
 import { ScraperEngineService } from '../scraper/scraper-engine.service';
 import { schedulerService } from '../../services/scheduler.service';
+import { GUJARAT_PREDEFINED_SOURCES } from '../../config/seed';
 
 export class SourcesController {
   /**
@@ -10,6 +11,14 @@ export class SourcesController {
    */
   static async getAll(req: Request, res: Response): Promise<void> {
     try {
+      // Purge only legacy/out-of-scope sources (10times, old global directories)
+      await WebsiteSource.deleteMany({
+        $or: [
+          { url: /10times|expofinder|eventseye|tradeindia|expostandzone|tradefairdates|biztradeshows/i },
+          { name: /10times|expofinder|eventseye|tradeindia|expostandzone|tradefairdates|biztradeshows/i },
+        ],
+      });
+
       const sources = await WebsiteSource.find().sort({ createdAt: -1 });
       res.json({ success: true, count: sources.length, data: sources });
     } catch (err: any) {
@@ -96,7 +105,18 @@ export class SourcesController {
 
       if (name) source.name = name.trim();
       if (url) source.url = url.trim();
-      if (parserKey) source.parserKey = parserKey;
+      if (parserKey) {
+        if (parserKey === 'auto') {
+          const detected = parserRegistry.resolveForUrl(source.url);
+          source.parserKey = detected.key;
+        } else {
+          source.parserKey = parserKey;
+        }
+      } else if (url) {
+        // If URL changed but no explicit parser specified, auto-resolve
+        const detected = parserRegistry.resolveForUrl(source.url);
+        source.parserKey = detected.key;
+      }
       if (category !== undefined) source.category = category;
       if (active !== undefined) source.active = Boolean(active);
       if (scheduleCron) source.scheduleCron = scheduleCron;
@@ -194,6 +214,51 @@ export class SourcesController {
       });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
+   * Test connection and network latency to a source URL
+   */
+  static async testConnection(req: Request, res: Response): Promise<void> {
+    try {
+      let targetUrl = '';
+      if (req.params.id) {
+        const source = await WebsiteSource.findById(req.params.id);
+        if (!source) {
+          res.status(404).json({ success: false, message: 'Source not found' });
+          return;
+        }
+        targetUrl = source.url;
+      } else if (req.body.url) {
+        targetUrl = req.body.url;
+      } else {
+        res.status(400).json({ success: false, message: 'Source ID or URL is required' });
+        return;
+      }
+
+      const startTime = Date.now();
+      const genericParser = parserRegistry.get('generic');
+      const html = await (genericParser as any).fetchHtml(targetUrl);
+      const latencyMs = Date.now() - startTime;
+
+      res.json({
+        success: true,
+        url: targetUrl,
+        status: 'REACHABLE',
+        latencyMs,
+        bytesReceived: html.length,
+        message: `Successfully connected to ${new URL(targetUrl).hostname} in ${latencyMs}ms.`,
+      });
+    } catch (err: any) {
+      const isWaf = err.response?.status === 403;
+      res.status(isWaf ? 403 : 502).json({
+        success: false,
+        status: isWaf ? 'BLOCKED_BY_WAF' : 'UNREACHABLE',
+        message: isWaf
+          ? 'Website is protected by anti-bot/Cloudflare challenge.'
+          : `Connection failed: ${err.message}`,
+      });
     }
   }
 
