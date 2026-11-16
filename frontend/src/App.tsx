@@ -1360,6 +1360,15 @@ export default function App() {
               </div>
             </div>
 
+            {selectedLog.errorMessages && selectedLog.errorMessages.length > 0 && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800">
+                <span className="font-bold uppercase text-[10px] block mb-1 text-rose-600">Error Details</span>
+                {selectedLog.errorMessages.map((err, i) => (
+                  <div key={i} className="font-medium">{err}</div>
+                ))}
+              </div>
+            )}
+
             <div>
               <span className="text-xs font-semibold text-slate-700 uppercase block mb-1">Execution Steps</span>
               <div className="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-[11px] max-h-56 overflow-y-auto space-y-1">

@@ -50,6 +50,9 @@ export class ScraperEngineService {
         }
         logs.push(`Fetched ${html.length} bytes of HTML`);
       } catch (fetchErr: any) {
+        if (fetchErr.response?.status === 403) {
+          throw new Error(`HTTP 403 Forbidden: ${new URL(source.url).hostname} is protected by Cloudflare bot protection/anti-bot challenge. Automated scraping access is blocked by the website.`);
+        }
         throw new Error(`Failed to fetch HTML: ${fetchErr.message}`);
       }
 
