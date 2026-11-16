@@ -53,6 +53,8 @@ export default function App() {
   const [sourceCategory, setSourceCategory] = useState('General Business');
   const [sourceScheduleCron, setSourceScheduleCron] = useState('0 0 * * *');
   const [sourceNotes, setSourceNotes] = useState('');
+  const [testPreviewLoading, setTestPreviewLoading] = useState(false);
+  const [testPreviewResult, setTestPreviewResult] = useState<any>(null);
 
   // Expos State
   const [expos, setExpos] = useState<Expo[]>([]);
@@ -235,6 +237,7 @@ export default function App() {
     setSourceCategory(src.category || 'General Business');
     setSourceScheduleCron(src.scheduleCron || '0 0 * * *');
     setSourceNotes(src.notes || '');
+    setTestPreviewResult(null);
     setIsSourceModalOpen(true);
   };
 
@@ -247,7 +250,37 @@ export default function App() {
     setSourceCategory('General Business');
     setSourceScheduleCron('0 0 * * *');
     setSourceNotes('');
+    setTestPreviewResult(null);
     setIsSourceModalOpen(true);
+  };
+
+  // Live Test Preview
+  const handleTestPreview = async () => {
+    if (!sourceUrl.trim()) {
+      error('URL Required', 'Please enter a website target URL to test.');
+      return;
+    }
+    try {
+      setTestPreviewLoading(true);
+      setTestPreviewResult(null);
+      info('Testing Website', 'Connecting and detecting expos...');
+      const res = await api.testSourcePreview({
+        url: sourceUrl.trim(),
+        parserKey: sourceParserKey,
+      });
+      setTestPreviewResult(res);
+      if (res.totalFound > 0) {
+        success('Expos Detected!', `Found ${res.totalFound} expos using ${res.parserUsed}!`);
+      } else {
+        info('No Expos Detected', 'Try checking the URL or specifying custom selectors.');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message;
+      setTestPreviewResult({ success: false, message: msg, totalFound: 0 });
+      error('Test Failed', msg);
+    } finally {
+      setTestPreviewLoading(false);
+    }
   };
 
   // Save Source
@@ -1168,16 +1201,64 @@ export default function App() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Website URL *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 uppercase">Website URL *</label>
+                  <button
+                    type="button"
+                    onClick={handleTestPreview}
+                    disabled={testPreviewLoading || !sourceUrl.trim()}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-600 hover:text-brand-800 disabled:opacity-40"
+                  >
+                    <span>{testPreviewLoading ? 'Testing...' : '⚡ Test & Auto-Detect Expos'}</span>
+                  </button>
+                </div>
                 <input
                   type="url"
                   required
-                  placeholder="https://www.eventseye.com/fairs/c1_trade-shows_world.html"
+                  placeholder="https://www.example.com/expos-list"
                   value={sourceUrl}
                   onChange={(e) => setSourceUrl(e.target.value)}
                   className="w-full text-xs p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 font-mono"
                 />
               </div>
+
+              {/* Live Test Preview Result Box */}
+              {testPreviewResult && (
+                <div
+                  className={`p-3 rounded-xl border text-xs space-y-1.5 ${
+                    testPreviewResult.totalFound > 0
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                      : 'bg-amber-50 border-amber-200 text-amber-900'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span>
+                      {testPreviewResult.totalFound > 0
+                        ? `✅ Success: Detected ${testPreviewResult.totalFound} expos!`
+                        : '⚠️ No expos found on this URL'}
+                    </span>
+                    <span className="text-[10px] font-mono opacity-75">
+                      Parser: {testPreviewResult.parserKey || 'Generic'}
+                    </span>
+                  </div>
+
+                  {testPreviewResult.message && (
+                    <p className="text-[11px] text-rose-700">{testPreviewResult.message}</p>
+                  )}
+
+                  {testPreviewResult.sampleItems && testPreviewResult.sampleItems.length > 0 && (
+                    <div className="space-y-1 pt-1 border-t border-emerald-200/60 text-[11px]">
+                      <span className="font-semibold block text-emerald-800">Preview Detected Events:</span>
+                      {testPreviewResult.sampleItems.slice(0, 3).map((item: any, idx: number) => (
+                        <div key={idx} className="truncate">
+                          • <span className="font-semibold">{item.name}</span>
+                          {item.city ? ` (${item.city})` : ''}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

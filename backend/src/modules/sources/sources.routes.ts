@@ -4,6 +4,7 @@ import { SourcesController } from './sources.controller';
 const router = Router();
 
 router.get('/parsers', SourcesController.getParsers);
+router.post('/test-preview', SourcesController.testUrlPreview);
 router.post('/fetch-all', SourcesController.triggerFetchAll);
 
 router.get('/', SourcesController.getAll);

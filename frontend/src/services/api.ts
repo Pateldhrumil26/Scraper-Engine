@@ -57,6 +57,19 @@ export const api = {
     return res.data;
   },
 
+  testSourcePreview: async (payload: { url: string; parserKey?: string; selectorConfig?: any }): Promise<{
+    success: boolean;
+    parserUsed: string;
+    parserKey: string;
+    htmlLength: number;
+    totalFound: number;
+    sampleItems: any[];
+    message?: string;
+  }> => {
+    const res = await apiClient.post('/sources/test-preview', payload);
+    return res.data;
+  },
+
   getAvailableParsers: async (): Promise<{ key: string; name: string; description: string }[]> => {
     const res = await apiClient.get<{ success: boolean; data: any[] }>('/sources/parsers');
     return res.data.data;

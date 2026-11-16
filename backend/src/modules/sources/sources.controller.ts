@@ -198,6 +198,56 @@ export class SourcesController {
   }
 
   /**
+   * Test any URL live and return a preview of extracted items before saving
+   */
+  static async testUrlPreview(req: Request, res: Response): Promise<void> {
+    try {
+      const { url, parserKey, selectorConfig } = req.body;
+      if (!url) {
+        res.status(400).json({ success: false, message: 'URL is required' });
+        return;
+      }
+
+      const parser = parserRegistry.resolveForUrl(url, parserKey);
+      let html = '';
+      try {
+        if ('fetchHtml' in parser && typeof (parser as any).fetchHtml === 'function') {
+          html = await (parser as any).fetchHtml(url);
+        } else {
+          const generic = parserRegistry.get('generic');
+          html = await (generic as any).fetchHtml(url);
+        }
+      } catch (fetchErr: any) {
+        if (fetchErr.response?.status === 403) {
+          res.status(403).json({
+            success: false,
+            message: `HTTP 403 Forbidden: ${new URL(url).hostname} blocks automated scraping with anti-bot protection.`,
+          });
+          return;
+        }
+        res.status(502).json({
+          success: false,
+          message: `Failed to fetch HTML: ${fetchErr.message}`,
+        });
+        return;
+      }
+
+      const rawItems = await parser.parse(html, url, selectorConfig);
+
+      res.json({
+        success: true,
+        parserUsed: parser.name,
+        parserKey: parser.key,
+        htmlLength: html.length,
+        totalFound: rawItems.length,
+        sampleItems: rawItems.slice(0, 5),
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  /**
    * Get list of registered parsers
    */
   static async getParsers(req: Request, res: Response): Promise<void> {
