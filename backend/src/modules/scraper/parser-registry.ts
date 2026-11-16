@@ -2,6 +2,7 @@ import { IExpoParser } from './interfaces/expo-parser.interface';
 import { EventsEyeParser } from './parsers/EventsEyeParser';
 import { TradeFairDatesParser } from './parsers/TradeFairDatesParser';
 import { BizTradeShowsParser } from './parsers/BizTradeShowsParser';
+import { AllEventsParser } from './parsers/AllEventsParser';
 import { GenericExpoParser } from './parsers/GenericExpoParser';
 
 class ParserRegistry {
@@ -12,6 +13,7 @@ class ParserRegistry {
     this.genericParser = new GenericExpoParser();
 
     // Register all default website-specific parsers
+    this.register(new AllEventsParser());
     this.register(new EventsEyeParser());
     this.register(new TradeFairDatesParser());
     this.register(new BizTradeShowsParser());
