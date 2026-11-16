@@ -23,7 +23,7 @@ export interface WebsiteSource {
   scheduleCron: string;
   lastFetchedAt: string | null;
   lastSuccessfulFetchAt?: string | null;
-  lastStatus: 'IDLE' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PARTIAL';
+  lastStatus: 'IDLE' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'NO_DATA' | 'PARSE_FAILED';
   healthStatus?: 'HEALTHY' | 'DEGRADED' | 'FAILING' | 'UNTESTED';
   consecutiveFailures?: number;
   lastError: string | null;
@@ -83,7 +83,7 @@ export interface FetchLog {
   sourceUrl: string;
   parserKey: string;
   triggeredBy: 'MANUAL' | 'SCHEDULED';
-  status: 'SUCCESS' | 'FAILED' | 'PARTIAL';
+  status: 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'NO_DATA' | 'PARSE_FAILED';
   startTime: string;
   endTime: string;
   durationMs: number;

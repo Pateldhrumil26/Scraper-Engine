@@ -186,6 +186,8 @@ export const SourceCard: React.FC<SourceCardProps> = ({
                   ? 'brand'
                   : source.lastStatus === 'PARTIAL'
                   ? 'warning'
+                  : source.lastStatus === 'NO_DATA'
+                  ? 'slate'
                   : 'danger'
               }
               size="sm"

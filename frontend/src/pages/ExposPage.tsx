@@ -7,10 +7,7 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Plus,
   Trash2,
-  ShieldCheck,
-  ShieldAlert,
   X,
 } from 'lucide-react';
 import { api } from '../services/api';
@@ -43,6 +40,7 @@ export const ExposPage: React.FC = () => {
   // Filter options
   const [availableIndustries, setAvailableIndustries] = useState<string[]>([]);
   const [availableCountries, setAvailableCountries] = useState<string[]>([]);
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
 
   const [filters, setFilters] = useState<ExpoFilterState>({
     search: '',
@@ -81,6 +79,7 @@ export const ExposPage: React.FC = () => {
       const res = await api.getExpoFilters();
       setAvailableIndustries(res.industries);
       setAvailableCountries(res.countries);
+      setAvailableCities(res.cities || []);
     } catch (err: any) {
       console.error(err);
     }
@@ -153,21 +152,6 @@ export const ExposPage: React.FC = () => {
     }
   };
 
-  const handleBulkVerify = async (status: 'VERIFIED' | 'FLAGGED' | 'REJECTED') => {
-    if (selectedIds.length === 0) return;
-    try {
-      setIsBulkLoading(true);
-      await api.bulkVerifyExpos(selectedIds, status);
-      success('Bulk Updated', `Marked ${selectedIds.length} expos as ${status}.`);
-      setSelectedIds([]);
-      loadExpos();
-    } catch (err: any) {
-      error('Bulk Verify Failed', err.message);
-    } finally {
-      setIsBulkLoading(false);
-    }
-  };
-
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
     if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected expos?`)) {
@@ -198,16 +182,6 @@ export const ExposPage: React.FC = () => {
     }
   };
 
-  const handleUpdateVerification = async (id: string, newStatus: string) => {
-    try {
-      const updated = await api.updateExpoVerification(id, newStatus);
-      setExpos((prev) => (prev.map((e) => (e._id === id ? updated : e))));
-      success('Status Updated', `Expo verification changed to ${newStatus}.`);
-    } catch (err: any) {
-      error('Failed to update status', err.message);
-    }
-  };
-
   const handleSaveExpo = async (formData: Partial<Expo>) => {
     try {
       if (editingExpo) {
@@ -231,22 +205,11 @@ export const ExposPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Business Expo Listings</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Search, multi-filter by verification, location, dates with instant Excel & CSV export
+            Search, multi-filter by location, dates with instant Excel & CSV export
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={() => {
-              setEditingExpo(null);
-              setIsExpoModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Expo Manually</span>
-          </button>
-
           <button
             onClick={loadExpos}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors"
@@ -285,24 +248,6 @@ export const ExposPage: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => handleBulkVerify('VERIFIED')}
-              disabled={isBulkLoading}
-              className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Bulk Verify</span>
-            </button>
-
-            <button
-              onClick={() => handleBulkVerify('FLAGGED')}
-              disabled={isBulkLoading}
-              className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              <ShieldAlert className="w-3.5 h-3.5" />
-              <span>Flag Review</span>
-            </button>
-
-            <button
               onClick={handleBulkDelete}
               disabled={isBulkLoading}
               className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
@@ -328,6 +273,7 @@ export const ExposPage: React.FC = () => {
         onChange={(newFilters) => setFilters((prev) => ({ ...prev, ...newFilters }))}
         onReset={handleResetFilters}
         industries={availableIndustries}
+        cities={availableCities}
         countries={availableCountries}
         viewMode={viewMode}
         onToggleViewMode={setViewMode}
@@ -374,7 +320,6 @@ export const ExposPage: React.FC = () => {
           onToggleSelect={handleToggleSelect}
           onSelectAll={handleSelectAll}
           onToggleFavorite={handleToggleFavorite}
-          onUpdateVerification={handleUpdateVerification}
         />
       )}
 

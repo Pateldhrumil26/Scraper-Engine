@@ -86,6 +86,10 @@ export const HistoryPage: React.FC = () => {
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           : log.status === 'PARTIAL'
                           ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : log.status === 'NO_DATA'
+                          ? 'bg-slate-100 text-slate-700 border-slate-300'
+                          : log.status === 'PARSE_FAILED'
+                          ? 'bg-orange-50 text-orange-700 border-orange-200'
                           : 'bg-rose-50 text-rose-700 border-rose-200'
                       }`}
                     >

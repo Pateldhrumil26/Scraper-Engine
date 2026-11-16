@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, RotateCcw, LayoutGrid, List, Star, ShieldCheck } from 'lucide-react';
+import { Search, RotateCcw, LayoutGrid, List, Star } from 'lucide-react';
 import { ExpoFilterState } from '../../types';
 
 interface ExpoFiltersBarProps {
@@ -7,22 +7,44 @@ interface ExpoFiltersBarProps {
   onChange: (newFilters: Partial<ExpoFilterState>) => void;
   onReset: () => void;
   industries: string[];
-  countries: string[];
+  cities?: string[];
+  countries?: string[];
   viewMode: 'grid' | 'table';
   onToggleViewMode: (mode: 'grid' | 'table') => void;
   totalCount: number;
 }
+
+const DEFAULT_GUJARAT_CITIES = [
+  'Ahmedabad',
+  'Gandhinagar',
+  'Surat',
+  'Vadodara',
+  'Rajkot',
+  'Patan',
+  'Morbi',
+  'Bhavnagar',
+  'Jamnagar',
+  'Anand',
+  'Bharuch',
+  'Vapi',
+  'Mehsana',
+  'Kutch',
+];
 
 export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
   filters,
   onChange,
   onReset,
   industries,
-  countries,
+  cities = [],
+  countries = [],
   viewMode,
   onToggleViewMode,
   totalCount,
 }) => {
+  const gujaratCities = Array.from(
+    new Set([...(cities.length > 0 ? cities : DEFAULT_GUJARAT_CITIES)])
+  ).sort();
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
       {/* Quick Status Tabs (All, Upcoming, Ongoing, Expired, Favorites) */}
@@ -135,7 +157,7 @@ export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
       {/* Search and Filter Inputs */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-xs">
         {/* Search Input */}
-        <div className="relative md:col-span-4">
+        <div className="relative md:col-span-5">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
@@ -162,32 +184,17 @@ export const ExpoFiltersBar: React.FC<ExpoFiltersBarProps> = ({
           </select>
         </div>
 
-        {/* Verification Status Filter */}
-        <div className="md:col-span-2">
+        {/* Gujarat City / Location Filter */}
+        <div className="md:col-span-3">
           <select
-            value={filters.verificationStatus || 'ALL'}
-            onChange={(e) => onChange({ verificationStatus: e.target.value, page: 1 })}
-            className="w-full p-2 rounded-xl border border-slate-200 bg-white text-slate-700"
-          >
-            <option value="ALL">All Verifications</option>
-            <option value="VERIFIED">🛡️ Verified Only</option>
-            <option value="UNVERIFIED">🟡 Unverified</option>
-            <option value="FLAGGED">⚠️ Needs Review</option>
-          </select>
-        </div>
-
-        {/* Country / City Filter */}
-        <div className="md:col-span-2">
-          <select
-            value={filters.country}
-            onChange={(e) => onChange({ country: e.target.value, page: 1 })}
+            value={filters.city || 'ALL'}
+            onChange={(e) => onChange({ city: e.target.value, country: 'ALL', page: 1 })}
             className="w-full p-2 rounded-xl border border-slate-200 bg-white text-slate-700 truncate"
           >
-            <option value="ALL">All Locations</option>
-            <option value="India">India (Ahmedabad/Gandhinagar)</option>
-            {countries.map((c) => (
+            <option value="ALL">All Gujarat Locations</option>
+            {gujaratCities.map((c) => (
               <option key={c} value={c}>
-                {c}
+                📍 {c}
               </option>
             ))}
           </select>

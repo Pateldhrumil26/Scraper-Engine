@@ -91,19 +91,29 @@ export const SourceModal: React.FC<SourceModalProps> = ({
   // Auto-detect parser hint on URL change
   const handleUrlChange = (newUrl: string) => {
     setUrl(newUrl);
-    if (!source && parserKey === 'auto') {
-      const lower = newUrl.toLowerCase();
-      if (lower.includes('allevents.in')) {
-        setParserKey('allevents');
-      } else if (lower.includes('expostandzone.com')) {
-        setParserKey('expostandzone');
-      } else if (lower.includes('tradefairdates.com')) {
-        setParserKey('tradefairdates');
-      } else if (lower.includes('eventseye.com')) {
-        setParserKey('eventseye');
-      } else if (lower.includes('biztradeshows.com')) {
-        setParserKey('biztradeshows');
-      }
+    const lower = newUrl.toLowerCase();
+    if (lower.includes('layerx3d.in')) {
+      setParserKey('layerx');
+    } else if (lower.includes('gccigate.com')) {
+      setParserKey('gccigate');
+    } else if (lower.includes('engiexpo.com')) {
+      setParserKey('engiexpo');
+    } else if (lower.includes('sgcci.in')) {
+      setParserKey('sgcci');
+    } else if (lower.includes('tradeindia.com')) {
+      setParserKey('tradeindia');
+    } else if (lower.includes('expofinder.com')) {
+      setParserKey('expofinder');
+    } else if (lower.includes('expostandzone.com')) {
+      setParserKey('expostandzone');
+    } else if (lower.includes('allevents.in')) {
+      setParserKey('allevents');
+    } else if (lower.includes('tradefairdates.com')) {
+      setParserKey('tradefairdates');
+    } else if (lower.includes('eventseye.com')) {
+      setParserKey('eventseye');
+    } else if (lower.includes('biztradeshows.com')) {
+      setParserKey('biztradeshows');
     }
   };
 
@@ -120,10 +130,27 @@ export const SourceModal: React.FC<SourceModalProps> = ({
 
     try {
       setIsSubmitting(true);
+      let finalParserKey = parserKey;
+      if (finalParserKey === 'auto') {
+        const lower = url.toLowerCase();
+        if (lower.includes('layerx3d.in')) finalParserKey = 'layerx';
+        else if (lower.includes('gccigate.com')) finalParserKey = 'gccigate';
+        else if (lower.includes('engiexpo.com')) finalParserKey = 'engiexpo';
+        else if (lower.includes('sgcci.in')) finalParserKey = 'sgcci';
+        else if (lower.includes('tradeindia.com')) finalParserKey = 'tradeindia';
+        else if (lower.includes('expofinder.com')) finalParserKey = 'expofinder';
+        else if (lower.includes('expostandzone.com')) finalParserKey = 'expostandzone';
+        else if (lower.includes('allevents.in')) finalParserKey = 'allevents';
+        else if (lower.includes('tradefairdates.com')) finalParserKey = 'tradefairdates';
+        else if (lower.includes('eventseye.com')) finalParserKey = 'eventseye';
+        else if (lower.includes('biztradeshows.com')) finalParserKey = 'biztradeshows';
+        else finalParserKey = 'generic';
+      }
+
       await onSave({
         name: name.trim(),
         url: url.trim(),
-        parserKey: parserKey === 'auto' ? 'generic' : parserKey,
+        parserKey: finalParserKey,
         category: category.trim(),
         scheduleCron: scheduleCron.trim(),
       });

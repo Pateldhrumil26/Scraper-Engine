@@ -8,9 +8,6 @@ import {
   Clock,
   AlertTriangle,
   Star,
-  ShieldCheck,
-  ShieldAlert,
-  HelpCircle,
   ArrowRight,
 } from 'lucide-react';
 import { Expo } from '../../types';
@@ -23,7 +20,6 @@ interface ExpoTableProps {
   onToggleSelect?: (id: string) => void;
   onSelectAll?: (selectAll: boolean) => void;
   onToggleFavorite?: (id: string) => void;
-  onUpdateVerification?: (id: string, status: string) => void;
 }
 
 export const ExpoTable: React.FC<ExpoTableProps> = ({
@@ -33,7 +29,6 @@ export const ExpoTable: React.FC<ExpoTableProps> = ({
   onToggleSelect,
   onSelectAll,
   onToggleFavorite,
-  onUpdateVerification,
 }) => {
   const allSelected = expos.length > 0 && selectedIds.length === expos.length;
 
@@ -56,7 +51,6 @@ export const ExpoTable: React.FC<ExpoTableProps> = ({
               <th className="py-3 px-2 w-8 text-center">★</th>
               <th className="py-3 px-4">Expo Name</th>
               <th className="py-3 px-3">Quality</th>
-              <th className="py-3 px-3">Verification</th>
               <th className="py-3 px-3">Status</th>
               <th className="py-3 px-4">Dates</th>
               <th className="py-3 px-4">Location</th>
@@ -127,38 +121,6 @@ export const ExpoTable: React.FC<ExpoTableProps> = ({
                     >
                       {expo.dataQualityScore ?? 80}%
                     </span>
-                  </td>
-
-                  {/* Verification Status */}
-                  <td className="py-3.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                    {expo.verificationStatus === 'VERIFIED' ? (
-                      <button
-                        onClick={() => onUpdateVerification?.(expo._id, 'UNVERIFIED')}
-                        className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                        title="Verified - click to toggle"
-                      >
-                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                        <span>Verified</span>
-                      </button>
-                    ) : expo.verificationStatus === 'FLAGGED' ? (
-                      <button
-                        onClick={() => onUpdateVerification?.(expo._id, 'VERIFIED')}
-                        className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
-                        title="Flagged - click to verify"
-                      >
-                        <ShieldAlert className="w-3 h-3 text-amber-600" />
-                        <span>Review</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => onUpdateVerification?.(expo._id, 'VERIFIED')}
-                        className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50"
-                        title="Unverified - click to verify"
-                      >
-                        <HelpCircle className="w-3 h-3 text-slate-400" />
-                        <span>Unverified</span>
-                      </button>
-                    )}
                   </td>
 
                   {/* Date Status */}

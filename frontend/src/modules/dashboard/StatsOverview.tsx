@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Globe2, Layers, AlertTriangle, Radio, Star, ShieldAlert } from 'lucide-react';
+import { Calendar, Globe2, Layers, AlertTriangle, Radio, Star } from 'lucide-react';
 import { DashboardStats } from '../../types';
 
 interface StatsOverviewProps {
@@ -86,28 +86,28 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({ stats }) => {
         <p className="text-[10px] text-emerald-700/80 mt-1">Happening today</p>
       </div>
 
-      {/* Requiring Verification */}
+      {/* Expired / Past Expos */}
       <div
         onClick={() => navigate('/expos')}
-        className="bg-white p-4 rounded-2xl border border-amber-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer group bg-amber-50/20"
+        className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group"
       >
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
-            Needs Review
+          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">
+            Past Expos
           </span>
-          <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-            <ShieldAlert className="w-3.5 h-3.5" />
+          <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-colors">
+            <AlertTriangle className="w-3.5 h-3.5" />
           </div>
         </div>
         <div className="mt-2.5 flex items-baseline gap-1.5">
-          <span className="text-xl font-black text-amber-900">
-            {stats?.unverifiedCount ?? 0}
+          <span className="text-xl font-black text-rose-900">
+            {stats?.expiredExpos ?? 0}
           </span>
-          <span className="text-[9px] text-amber-700 font-bold bg-amber-100 px-1.5 py-0.2 rounded-full">
-            Review
+          <span className="text-[9px] text-rose-700 font-bold bg-rose-50 px-1.5 py-0.2 rounded-full">
+            Archive
           </span>
         </div>
-        <p className="text-[10px] text-amber-700/80 mt-1">Pending verification</p>
+        <p className="text-[10px] text-slate-400 mt-1">Completed events</p>
       </div>
 
       {/* Starred Favorites */}

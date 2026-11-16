@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Play, Plus, FileSpreadsheet, Database, ShieldCheck } from 'lucide-react';
+import { RefreshCw, Play, Plus, FileSpreadsheet, Database } from 'lucide-react';
 import { api } from '../services/api';
 import { DashboardStats, Expo } from '../types';
 import { StatsOverview } from '../modules/dashboard/StatsOverview';
 import { UpcomingExposWidget } from '../modules/dashboard/UpcomingExposWidget';
 import { RecentFetchesWidget } from '../modules/dashboard/RecentFetchesWidget';
 import { IndustryDistributionWidget } from '../modules/dashboard/IndustryDistributionWidget';
-import { VerificationQueueWidget } from '../modules/dashboard/VerificationQueueWidget';
 import { NewlyDiscoveredWidget } from '../modules/dashboard/NewlyDiscoveredWidget';
 import { ExpoDetailModal } from '../modules/expos/ExpoDetailModal';
 import { useToast } from '../context/ToastContext';
@@ -123,41 +122,34 @@ export const DashboardPage: React.FC = () => {
       {/* Metric Cards (6 KPI tiles) */}
       <StatsOverview stats={stats} />
 
-      {/* Actionable Verification Queue & Newly Discovered Widgets */}
+      {/* Newly Discovered Expos & Upcoming Expos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <VerificationQueueWidget
-          unverifiedExpos={stats?.unverifiedList || []}
-          onRefresh={loadStats}
-          onViewAll={() => navigate('/expos')}
-        />
-
         <NewlyDiscoveredWidget
           expos={stats?.newlyDiscoveredList || []}
           onViewAll={() => navigate('/expos')}
           onSelectExpo={(expo) => setSelectedExpo(expo)}
         />
-      </div>
 
-      {/* Grid: Upcoming Expos & Recent Fetches */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <UpcomingExposWidget
           expos={stats?.upcomingList || []}
           onViewAll={() => navigate('/expos')}
           onSelectExpo={(expo) => setSelectedExpo(expo)}
         />
+      </div>
 
+      {/* Recent Fetches & Distribution Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <RecentFetchesWidget
           logs={stats?.recentFetches || []}
           onViewAll={() => navigate('/history')}
           onSelectLog={() => navigate('/history')}
         />
-      </div>
 
-      {/* Distribution Charts / Bars */}
-      <IndustryDistributionWidget
-        industryStats={stats?.industryStats || []}
-        countryStats={stats?.countryStats || []}
-      />
+        <IndustryDistributionWidget
+          industryStats={stats?.industryStats || []}
+          countryStats={stats?.countryStats || []}
+        />
+      </div>
 
       {/* Expo Detail Modal */}
       <ExpoDetailModal
