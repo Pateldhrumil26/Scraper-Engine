@@ -3,6 +3,7 @@ import { Globe, Clock, Check, Sparkles, Sliders } from 'lucide-react';
 import { WebsiteSource } from '../../types';
 import { Modal } from '../../components/common/Modal';
 import { Button } from '../../components/common/Button';
+import { CustomSelect, SelectOption } from '../../components/common/CustomSelect';
 
 interface SourceModalProps {
   isOpen: boolean;
@@ -211,18 +212,18 @@ export const SourceModal: React.FC<SourceModalProps> = ({
             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
               Parser Type
             </label>
-            <select
+            <CustomSelect
               value={parserKey}
-              onChange={(e) => setParserKey(e.target.value)}
-              className="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white shadow-xs"
-            >
-              <option value="auto">Auto-Detect from Domain</option>
-              {parsers.map((p) => (
-                <option key={p.key} value={p.key}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              onChange={setParserKey}
+              options={[
+                { value: 'auto', label: 'Auto-Detect from Domain' },
+                ...parsers.map((p) => ({
+                  value: p.key,
+                  label: p.name,
+                })),
+              ]}
+              searchable={true}
+            />
           </div>
 
           <div>

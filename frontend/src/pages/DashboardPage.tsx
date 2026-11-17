@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Play, Plus, FileSpreadsheet, Database } from 'lucide-react';
+import { RefreshCw, Play, FileSpreadsheet } from 'lucide-react';
 import { api } from '../services/api';
 import { DashboardStats, Expo } from '../types';
 import { StatsOverview } from '../modules/dashboard/StatsOverview';
@@ -16,7 +16,6 @@ export const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingAll, setIsFetchingAll] = useState(false);
-  const [isBackingUp, setIsBackingUp] = useState(false);
   const [selectedExpo, setSelectedExpo] = useState<Expo | null>(null);
   const { success, error, info } = useToast();
 
@@ -50,18 +49,6 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-  const handleCreateBackup = async () => {
-    try {
-      setIsBackingUp(true);
-      const res = await api.createBackup();
-      success('Backup Created', `Saved snapshot ${res.filename} (${res.totalExpos} expos).`);
-    } catch (err: any) {
-      error('Backup Failed', err.message);
-    } finally {
-      setIsBackingUp(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Top Banner & Action Bar */}
@@ -69,40 +56,23 @@ export const DashboardPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Business Expo Fetching Dashboard</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Real-time scraping engine, deduplication and Ahmedabad, Gandhinagar & global expo management
+            Real-time scraping engine, deduplication and Ahmedabad, Gandhinagar & Gujarat expo management
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={loadStats}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors"
+            title="Reload statistics from database"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-xs transition-colors"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Refresh</span>
-          </button>
-
-          <button
-            onClick={handleCreateBackup}
-            disabled={isBackingUp}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors disabled:opacity-50"
-            title="Create JSON snapshot backup of MongoDB database"
-          >
-            <Database className="w-3.5 h-3.5 text-indigo-600" />
-            <span>{isBackingUp ? 'Backing up...' : 'Backup DB'}</span>
-          </button>
-
-          <button
-            onClick={() => navigate('/sources')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5 text-brand-600" />
-            <span>Manage Sources</span>
+            <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+            <span>Refresh Stats</span>
           </button>
 
           <button
             onClick={() => navigate('/expos')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-xs transition-colors"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
             <span>Export Expos</span>
@@ -111,10 +81,11 @@ export const DashboardPage: React.FC = () => {
           <button
             onClick={handleFetchAll}
             disabled={isFetchingAll}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition-all disabled:opacity-50"
+            title="Scrape all active websites right now to discover new expos"
           >
-            <Play className="w-3.5 h-3.5" />
-            <span>{isFetchingAll ? 'Fetching...' : 'Fetch All Active'}</span>
+            <Play className={`w-3.5 h-3.5 ${isFetchingAll ? 'animate-spin' : ''}`} />
+            <span>{isFetchingAll ? 'Scraping Websites...' : 'Fetch Live Expos'}</span>
           </button>
         </div>
       </div>
