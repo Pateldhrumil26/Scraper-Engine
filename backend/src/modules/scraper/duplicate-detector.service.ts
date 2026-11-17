@@ -40,21 +40,29 @@ export class DuplicateDetector {
 
     const hashes = items.map((i) => i.duplicateHash);
     const urls = items.map((i) => i.sourceUrl);
+    const slugs = items.map((i) => i.slug);
 
-    // Query existing records by duplicateHash or sourceUrl
+    // Query existing records by duplicateHash, sourceUrl, or slug
     const existing = await Expo.find({
       $or: [
         { duplicateHash: { $in: hashes } },
         { sourceUrl: { $in: urls } },
+        { slug: { $in: slugs } },
       ],
     }).lean();
 
     const existingByHash = new Map<string, any>();
     const existingByUrl = new Map<string, any>();
+    const existingBySlug = new Map<string, any>();
 
     for (const record of existing) {
       if (record.duplicateHash) existingByHash.set(record.duplicateHash, record);
-      if (record.sourceUrl) existingByUrl.set(record.sourceUrl, record);
+      if (record.sourceUrl) {
+        existingByUrl.set(record.sourceUrl, record);
+        const norm = record.sourceUrl.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, '');
+        existingByUrl.set(norm, record);
+      }
+      if (record.slug) existingBySlug.set(record.slug, record);
     }
 
     const newItems: ValidatedExpoData[] = [];
@@ -70,7 +78,12 @@ export class DuplicateDetector {
       }
       seenBatchHashes.add(item.duplicateHash);
 
-      const matchedExisting = existingByHash.get(item.duplicateHash) || existingByUrl.get(item.sourceUrl);
+      const normItemUrl = item.sourceUrl ? item.sourceUrl.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, '') : '';
+      const matchedExisting =
+        existingByHash.get(item.duplicateHash) ||
+        existingByUrl.get(item.sourceUrl) ||
+        (normItemUrl ? existingByUrl.get(normItemUrl) : undefined) ||
+        existingBySlug.get(item.slug);
 
       if (matchedExisting) {
         // Field Diffing & Update Detection
@@ -182,6 +195,7 @@ export class DuplicateDetector {
               description: item.description,
               registrationUrl: item.registrationUrl,
               status: item.status,
+              duplicateHash: item.duplicateHash,
               dataQualityScore: Math.max(matchedExisting.dataQualityScore || 50, item.dataQualityScore || 50),
               missingFields: item.missingFields,
             },

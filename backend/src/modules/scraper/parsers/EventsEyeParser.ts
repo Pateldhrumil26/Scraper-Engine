@@ -15,7 +15,7 @@ export class EventsEyeParser extends BaseParser {
   /**
    * Parse MM/DD/YYYY or standard date format with optional duration
    */
-  private parseEventsEyeDate(dateStr?: string | null): { startDate: Date; endDate: Date } {
+  private parseEventsEyeDate(dateStr?: string | null): { startDate?: Date; endDate?: Date } {
     if (!dateStr) {
       return this.parseDateRange(null);
     }

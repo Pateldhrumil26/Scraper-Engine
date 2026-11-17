@@ -11,11 +11,11 @@ export class SourcesController {
    */
   static async getAll(req: Request, res: Response): Promise<void> {
     try {
-      // Purge only legacy/out-of-scope sources (10times, old global directories)
+      // Purge only legacy 10times source as requested
       await WebsiteSource.deleteMany({
         $or: [
-          { url: /10times|expofinder|eventseye|tradeindia|expostandzone|tradefairdates|biztradeshows/i },
-          { name: /10times|expofinder|eventseye|tradeindia|expostandzone|tradefairdates|biztradeshows/i },
+          { url: /10times/i },
+          { name: /10times/i },
         ],
       });
 

@@ -46,6 +46,17 @@ export class SgcciParser extends BaseParser {
           industry = 'Higher Education & Industrial Skill Training';
         }
 
+        // Check DOM container for real-time live date overrides
+        const $container = $a.closest('div, li, tr, p, section');
+        const containerText = this.cleanText($container.text());
+        const dynamicDateMatch =
+          containerText.match(/\b\d{1,2}(?:st|nd|rd|th)?(?:\s*[-–—to]+\s*\d{1,2}(?:st|nd|rd|th)?)?\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[a-z]*,?\s+\d{4}\b/i) ||
+          containerText.match(/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*[-–—to]+\s*\d{1,2}(?:st|nd|rd|th)?)?,?\s+\d{4}\b/i);
+
+        if (dynamicDateMatch) {
+          dateText = dynamicDateMatch[0];
+        }
+
         const { startDate, endDate } = this.parseDateRange(dateText);
         const sourceUrl = this.resolveUrl(href, baseUrl);
 
@@ -64,7 +75,7 @@ export class SgcciParser extends BaseParser {
           sourceUrl,
           rawData: {
             organizer: 'SGCCI',
-            datesEstimated: dateText,
+            parsedDateText: dateText,
           },
         });
       }

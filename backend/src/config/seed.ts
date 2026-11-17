@@ -1,88 +1,57 @@
 import { WebsiteSource } from '../models/WebsiteSource';
 import { Expo } from '../models/Expo';
+import { parserRegistry } from '../modules/scraper/parser-registry';
+import defaultWebsites from './websites.json';
 
-export const GUJARAT_PREDEFINED_SOURCES = [
-  {
-    name: 'LayerX Gujarat Confirmed Expos (Ahmedabad & Gandhinagar)',
-    url: 'https://layerx3d.in/blog/upcoming-expos-ahmedabad-gandhinagar-2026-27',
-    parserKey: 'layerx',
-    category: 'Gujarat Confirmed Business Expos',
-    active: true,
-    scheduleCron: '0 */6 * * *',
-    notes: 'Curated calendar of confirmed industrial exhibitions and trade shows in Ahmedabad and Gandhinagar.',
-  },
-  {
-    name: 'GATE 2027 · GCCI Annual Trade Expo (Gandhinagar)',
-    url: 'https://www.gccigate.com/',
-    parserKey: 'gccigate',
-    category: 'Gujarat Chamber of Commerce & Industry',
-    active: true,
-    scheduleCron: '0 0 * * *',
-    notes: 'Official trade exposition by Gujarat Chamber of Commerce & Industry (GCCI) at Helipad Exhibition Centre, Gandhinagar.',
-  },
-  {
-    name: 'EngiExpo Gujarat Industrial Engineering (Ahmedabad, Surat, Rajkot, Vadodara)',
-    url: 'https://engiexpo.com/',
-    parserKey: 'engiexpo',
-    category: 'Gujarat Engineering & Machinery',
-    active: true,
-    scheduleCron: '0 */6 * * *',
-    notes: "Premier B2B industrial engineering and automation exhibitions across Gujarat's industrial hubs.",
-  },
-  {
-    name: 'SGCCI Southern Gujarat Trade & Industrial Expos (Surat)',
-    url: 'https://sgcci.in/',
-    parserKey: 'sgcci',
-    category: 'South Gujarat Trade & Textiles',
-    active: true,
-    scheduleCron: '0 */6 * * *',
-    notes: 'Official trade fairs by Southern Gujarat Chamber of Commerce & Industry at SIECC Sarsana, Surat.',
-  },
-  {
-    name: 'Ahmedabad Business & Trade Expos',
-    url: 'https://allevents.in/ahmedabad/exhibitions',
-    parserKey: 'allevents',
-    category: 'Ahmedabad Business Shows',
-    active: true,
-    scheduleCron: '0 */6 * * *',
-    notes: 'Live business exhibitions, industrial expos, and commercial trade shows in Ahmedabad.',
-  },
-  {
-    name: 'Gandhinagar Trade Fairs & Expos',
-    url: 'https://allevents.in/gandhinagar/exhibitions',
-    parserKey: 'allevents',
-    category: 'Gandhinagar & Mahatma Mandir',
-    active: true,
-    scheduleCron: '0 */6 * * *',
-    notes: 'Exhibitions and business conventions at Mahatma Mandir and Helipad Ground, Gandhinagar.',
-  },
-];
+export interface SimpleWebsiteConfig {
+  name: string;
+  url: string;
+  parserKey?: string;
+  category?: string;
+  active?: boolean;
+  scheduleCron?: string;
+  notes?: string;
+}
+
+export const GUJARAT_PREDEFINED_SOURCES: SimpleWebsiteConfig[] = defaultWebsites as SimpleWebsiteConfig[];
 
 export const seedDefaultSources = async (): Promise<void> => {
   try {
-    for (const src of GUJARAT_PREDEFINED_SOURCES) {
+    const websitesList = defaultWebsites as SimpleWebsiteConfig[];
+
+    for (const src of websitesList) {
+      if (!src.url) continue;
+
+      // Auto-detect parser key from domain if not explicitly provided
+      const finalParserKey = src.parserKey || parserRegistry.resolveForUrl(src.url).key;
+      const finalName = src.name || new URL(src.url).hostname;
+      const finalCategory = src.category || 'General Business';
+      const finalCron = src.scheduleCron || '0 */6 * * *';
+      const finalActive = src.active !== undefined ? src.active : true;
+
       await WebsiteSource.findOneAndUpdate(
-        { url: src.url },
+        { url: src.url.trim() },
         {
           $set: {
-            name: src.name,
-            parserKey: src.parserKey,
-            category: src.category,
-            active: src.active,
-            scheduleCron: src.scheduleCron,
-            notes: src.notes,
+            name: finalName.trim(),
+            url: src.url.trim(),
+            parserKey: finalParserKey,
+            category: finalCategory,
+            active: finalActive,
+            scheduleCron: finalCron,
+            notes: src.notes || '',
           },
         },
         { upsert: true, new: true }
       );
     }
-    console.log(`[Seed] Successfully synchronized ${GUJARAT_PREDEFINED_SOURCES.length} predefined Gujarat website sources.`);
+    console.log(`[Seed] Successfully synchronized ${defaultWebsites.length} predefined website sources from websites.json.`);
 
-    // Remove legacy/out-of-scope website sources (10times, old international directories)
+    // Remove legacy 10times website sources (user requested removal)
     const deleteSourcesRes = await WebsiteSource.deleteMany({
       $or: [
-        { url: /10times|expofinder|eventseye|tradeindia|expostandzone|tradefairdates|biztradeshows/i },
-        { name: /10times|expofinder|eventseye|tradeindia|expostandzone|tradefairdates|biztradeshows/i },
+        { url: /10times/i },
+        { name: /10times/i },
       ],
     });
     if (deleteSourcesRes.deletedCount > 0) {
@@ -119,6 +88,7 @@ export const seedDefaultSources = async (): Promise<void> => {
         updatedCount++;
       }
     }
+
     if (updatedCount > 0) {
       console.log(`[Seed] Normalized ${updatedCount} existing expos with precise Gujarat city mapping.`);
     }

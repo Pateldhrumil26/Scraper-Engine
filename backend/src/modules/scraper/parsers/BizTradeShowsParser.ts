@@ -9,7 +9,7 @@ export class BizTradeShowsParser extends BaseParser {
   readonly description = 'Parser for BizTradeShows and business trade exhibition directories';
 
   canHandle(url: string): boolean {
-    return url.toLowerCase().includes('biztradeshows.com') || url.toLowerCase().includes('tradeindia.com');
+    return url.toLowerCase().includes('biztradeshows.com');
   }
 
   async parse(html: string, baseUrl: string, _customConfig?: ISelectorConfig): Promise<RawExpoData[]> {

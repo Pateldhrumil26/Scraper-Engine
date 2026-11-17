@@ -62,7 +62,7 @@ const WebsiteSourceSchema = new Schema<IWebsiteSource>(
     lastSuccessfulFetchAt: { type: Date, default: null },
     lastStatus: {
       type: String,
-      enum: ['IDLE', 'RUNNING', 'SUCCESS', 'FAILED', 'PARTIAL'],
+      enum: ['IDLE', 'RUNNING', 'SUCCESS', 'FAILED', 'PARTIAL', 'NO_DATA', 'PARSE_FAILED'],
       default: 'IDLE',
     },
     healthStatus: {
