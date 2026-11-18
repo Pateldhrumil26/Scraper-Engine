@@ -3,6 +3,8 @@ import { config } from './config/env';
 import { connectDatabase } from './config/database';
 import { seedDefaultSources } from './config/seed';
 import { schedulerService } from './services/scheduler.service';
+import { Expo } from './models/Expo';
+import { ScraperEngineService } from './modules/scraper/scraper-engine.service';
 
 const startServer = async () => {
   try {
@@ -15,7 +17,16 @@ const startServer = async () => {
     // 3. Initialize background scheduler
     await schedulerService.init();
 
-    // 4. Start Express Server
+    // 4. Auto-scrape on startup if database is empty (0 expos)
+    const initialExpoCount = await Expo.estimatedDocumentCount();
+    if (initialExpoCount === 0) {
+      console.log('[Startup] Database has 0 expos. Automatically triggering background web scraper for all active websites...');
+      ScraperEngineService.fetchAllActiveSources('SCHEDULED').catch((err) =>
+        console.error('[Startup] Initial scrape error:', err.message)
+      );
+    }
+
+    // 5. Start Express Server
     const app = createApp();
     const server = app.listen(config.port, () => {
       console.log(`=======================================================`);

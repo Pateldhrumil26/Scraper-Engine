@@ -8,6 +8,8 @@ import { DuplicateDetector } from './duplicate-detector.service';
 import { FetchResult, ValidatedExpoData } from './interfaces/expo-parser.interface';
 
 export class ScraperEngineService {
+  public static isBatchRunning = false;
+
   /**
    * Orchestrates the complete fetching pipeline for a single website source
    */
@@ -221,20 +223,33 @@ export class ScraperEngineService {
    * Fetches all active sources with concurrency limit and polite interval
    */
   static async fetchAllActiveSources(triggeredBy: 'MANUAL' | 'SCHEDULED' = 'MANUAL'): Promise<FetchResult[]> {
-    const activeSources = await WebsiteSource.find({ active: true });
-    const results: FetchResult[] = [];
-
-    for (const source of activeSources) {
-      try {
-        const res = await this.fetchSource(source, triggeredBy);
-        results.push(res);
-      } catch (err: any) {
-        console.error(`Error fetching source ${source.name}:`, err);
-      }
-      // Polite rate limit delay between sources
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+    if (this.isBatchRunning) {
+      console.log('[ScraperEngine] Batch fetch is already running in background. Skipping duplicate trigger.');
+      return [];
     }
 
-    return results;
+    this.isBatchRunning = true;
+    console.log(`[ScraperEngine] Starting batch fetch for all active sources (triggeredBy: ${triggeredBy})...`);
+
+    try {
+      const activeSources = await WebsiteSource.find({ active: true });
+      const results: FetchResult[] = [];
+
+      for (const source of activeSources) {
+        try {
+          const res = await this.fetchSource(source, triggeredBy);
+          results.push(res);
+        } catch (err: any) {
+          console.error(`Error fetching source ${source.name}:`, err);
+        }
+        // Polite rate limit delay between sources
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+      }
+
+      console.log(`[ScraperEngine] Completed batch fetch for ${results.length} sources.`);
+      return results;
+    } finally {
+      this.isBatchRunning = false;
+    }
   }
 }

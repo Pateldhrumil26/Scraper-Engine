@@ -3,6 +3,7 @@ import { Expo, IChangeHistoryItem } from '../../models/Expo';
 import { WebsiteSource } from '../../models/WebsiteSource';
 import { FetchLog } from '../../models/FetchLog';
 import { ExpoValidator } from '../scraper/validator/expo.validator';
+import { ScraperEngineService } from '../scraper/scraper-engine.service';
 
 export class ExposController {
   /**
@@ -131,6 +132,19 @@ export class ExposController {
       ]);
 
       const totalPages = Math.ceil(total / limit);
+
+      // Auto-trigger live scraper in background if database has 0 expos or if explicitly requested
+      const shouldScrape = req.query.refresh === 'true' || req.query.scrape === 'true';
+      if ((total === 0 || shouldScrape) && !ScraperEngineService.isBatchRunning) {
+        Expo.estimatedDocumentCount().then((count) => {
+          if (count === 0 || shouldScrape) {
+            console.log('[ExposController] Auto-triggering live website scraper in background...');
+            ScraperEngineService.fetchAllActiveSources('MANUAL').catch((err) =>
+              console.error('[ExposController] Auto-fetch error:', err.message)
+            );
+          }
+        }).catch((err) => console.error('[ExposController] Count check error:', err));
+      }
 
       res.json({
         success: true,
@@ -569,6 +583,14 @@ export class ExposController {
           .limit(5)
           .lean(),
       ]);
+
+      // Auto-trigger live scraper if total expos in database is 0
+      if (totalExpos === 0 && !ScraperEngineService.isBatchRunning) {
+        console.log('[DashboardStats] Database has 0 expos. Auto-triggering live website scraper in background...');
+        ScraperEngineService.fetchAllActiveSources('MANUAL').catch((err) =>
+          console.error('[DashboardStats] Auto-fetch error:', err.message)
+        );
+      }
 
       res.json({
         success: true,
