@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Trash2,
   X,
+  Play,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Expo, PaginationMeta, ExpoFilterState } from '../types';
@@ -26,6 +27,7 @@ export const ExposPage: React.FC = () => {
   const [meta, setMeta] = useState<PaginationMeta>({ page: 1, limit: 12, total: 0, totalPages: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [isFetchingLive, setIsFetchingLive] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedExpo, setSelectedExpo] = useState<Expo | null>(null);
 
@@ -137,6 +139,31 @@ export const ExposPage: React.FC = () => {
     }
   };
 
+  const handleFetchLive = async () => {
+    try {
+      setIsFetchingLive(true);
+      info('Scraping Started', 'Fetching latest expos from all active websites...');
+      await api.triggerFetchAll();
+      success('Live Scraping in Progress', 'Websites are being scraped in background. Expos will stream in automatically.');
+
+      // Periodically refresh list as scraper saves items into database
+      setTimeout(loadExpos, 3000);
+      setTimeout(loadExpos, 7000);
+      setTimeout(() => {
+        loadExpos();
+        loadFilterOptions();
+      }, 12000);
+      setTimeout(() => {
+        loadExpos();
+        loadFilterOptions();
+        setIsFetchingLive(false);
+      }, 20000);
+    } catch (err: any) {
+      error('Fetch Failed', err.message);
+      setIsFetchingLive(false);
+    }
+  };
+
   // Bulk Selection Handlers
   const handleToggleSelect = (id: string) => {
     setSelectedIds((prev) =>
@@ -211,10 +238,21 @@ export const ExposPage: React.FC = () => {
 
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
+            onClick={handleFetchLive}
+            disabled={isFetchingLive}
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition-all disabled:opacity-50"
+            title="Scrape all active websites right now to discover and ingest fresh expos into database"
+          >
+            <Play className={`w-3.5 h-3.5 ${isFetchingLive ? 'animate-spin' : ''}`} />
+            <span>{isFetchingLive ? 'Scraping Websites...' : 'Fetch Live Expos'}</span>
+          </button>
+
+          <button
             onClick={loadExpos}
+            title="Reload expos from local database"
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-brand-600' : ''}`} />
             <span>Refresh</span>
           </button>
 
